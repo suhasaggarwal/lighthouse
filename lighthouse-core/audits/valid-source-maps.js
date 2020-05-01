@@ -29,7 +29,7 @@ function isFirstParty(url, finalUrl) {
   try {
     const entity = thirdPartyWeb.getEntity(url);
     if (!entity) return false;
-    return entity === thirdPartyWeb.getEntity(finalUrl)
+    return entity === thirdPartyWeb.getEntity(finalUrl);
   } catch (_) {
     return false;
   }
@@ -56,77 +56,63 @@ class ValidSourceMaps extends Audit {
   static audit(artifacts) {
     const {SourceMaps} = artifacts;
 
+    let missingMapsForLargeFirstPartyFile = false;
     const results = [];
-    for (const sourceMapOrError of SourceMaps) {
-      const {scriptUrl, sourceMapUrl} = sourceMapOrError;
+    for (const ScriptElement of artifacts.ScriptElements) {
+      if (!ScriptElement.src) continue; // TODO: inline scripts, how do they work?
 
-      // Load errors.
-      if (!sourceMapOrError.map) {
-        const error = sourceMapOrError.errorMessage;
-        results.push({
-          scriptUrl,
-          sourceMapUrl,
-          error,
-        });
-        continue;
+      const SourceMap = SourceMaps.find(m => m.scriptUrl === ScriptElement.src);
+      const errors = [];
+      const isLargeFirstParty =
+        ScriptElement.content && ScriptElement.content.length >= 500 * 1000
+          && isFirstParty(ScriptElement.src, artifacts.URL.finalUrl);
+
+      if (isLargeFirstParty && (!SourceMap || !SourceMap.map)) {
+        missingMapsForLargeFirstPartyFile = true;
+        errors.push('Large JavaScript file is missing a source map.');
       }
 
-      const map = sourceMapOrError.map;
+      if (SourceMap && !SourceMap.map) {
+        errors.push(SourceMap.errorMessage);
+      }
+
+      // Sources content errors.
+      if (SourceMap && SourceMap.map) {
+        const sourcesContent = SourceMap.map.sourcesContent || [];
+        let missingSourcesContentCount = 0;
+        for (let i = 0; i < SourceMap.map.sources.length; i++) {
+          if (sourcesContent.length < i || !sourcesContent[i]) missingSourcesContentCount += 1;
+        }
+        if (missingSourcesContentCount > 0) {
+          errors.push(`missing ${missingSourcesContentCount} items in \`.sourcesContent\``);
+        }
+      }
 
       // TODO(cjamcl) validate (maybe source-map-validator) the map. Can punt this until maps
       // are used for mapping in the report (we'd show a snippet of source code, or
       // show a source position instead of generated position).
 
-      // Sources content errors.
-      const sourcesContent = map.sourcesContent || [];
-      let missingSourcesContentCount = 0;
-      for (let i = 0; i < map.sources.length; i++) {
-        if (sourcesContent.length < i || !sourcesContent[i]) missingSourcesContentCount += 1;
-      }
-      if (missingSourcesContentCount > 0) {
+      if (SourceMap || errors.length) {
         results.push({
-          scriptUrl: scriptUrl,
-          sourceMapUrl: sourceMapUrl,
-          error: `missing ${missingSourcesContentCount} items in \`.sourcesContent\``,
+          scriptUrl: ScriptElement.src,
+          sourceMapUrl: SourceMap && SourceMap.sourceMapUrl,
+          errors,
         });
-        continue;
       }
-
-      results.push({
-        scriptUrl: scriptUrl,
-        sourceMapUrl: sourceMapUrl,
-      });
-    }
-
-    let missingMapsForLargeFirstPartyFile = false;
-    for (const ScriptElement of artifacts.ScriptElements) {
-      if (!ScriptElement.src) continue; // TODO: inline scripts, how do they work?
-
-      const SourceMap = SourceMaps.find(m => m.scriptUrl === ScriptElement.src);
-      if (SourceMap && SourceMap.map) continue;
-
-      if (!ScriptElement.content) continue;
-      if (ScriptElement.content.length < 500 * 1000) continue;
-      if (!isFirstParty(ScriptElement.src, artifacts.URL.finalUrl));
-
-      missingMapsForLargeFirstPartyFile = true;
-      results.push({
-        scriptUrl: ScriptElement.src,
-        sourceMapUrl: SourceMap && SourceMap.sourceMapUrl,
-        error: 'Large JavaScript file is missing a source map.',
-      });
     }
 
     /** @type {LH.Audit.Details.Table['headings']} */
     const headings = [
-      {key: 'scriptUrl', itemType: 'url', text: str_(i18n.UIStrings.columnURL)},
+      /* eslint-disable max-len */
+      {key: 'scriptUrl', itemType: 'url', subRows: {key: 'errors', itemType: 'text'}, text: str_(i18n.UIStrings.columnURL)},
       {key: 'sourceMapUrl', itemType: 'url', text: 'Map URL'}, // TODO uistring
       {key: 'error', itemType: 'code', text: 'Error'}, // TODO uistring
+      /* eslint-enable max-len */
     ];
 
     results.sort((a, b) => {
-      if (a.error && !b.error) return -1;
-      if (!a.error && b.error) return 1;
+      if (a.errors.length && !b.errors.length) return -1;
+      if (!a.errors.length && b.errors.length) return 1;
       return b.scriptUrl.localeCompare(a.scriptUrl);
     });
 
