@@ -5,6 +5,7 @@
  */
 'use strict';
 
+const thirdPartyWeb = require('third-party-web/httparchive-nostats-subset');
 const Audit = require('./audit.js');
 const i18n = require('../lib/i18n/i18n.js');
 
@@ -20,6 +21,20 @@ const UIStrings = {
 
 const str_ = i18n.createMessageInstanceIdFn(__filename, UIStrings);
 
+/**
+ * @param {string} url
+ * @param {string} finalUrl
+ */
+function isFirstParty(url, finalUrl) {
+  try {
+    const entity = thirdPartyWeb.getEntity(url);
+    if (!entity) return false;
+    return entity === thirdPartyWeb.getEntity(finalUrl)
+  } catch (_) {
+    return false;
+  }
+}
+
 class ValidSourceMaps extends Audit {
   /**
    * @return {LH.Audit.Meta}
@@ -30,7 +45,7 @@ class ValidSourceMaps extends Audit {
       title: str_(UIStrings.title),
       failureTitle: str_(UIStrings.failureTitle),
       description: str_(UIStrings.description),
-      requiredArtifacts: ['ScriptElements', 'SourceMaps'],
+      requiredArtifacts: ['ScriptElements', 'SourceMaps', 'URL'],
     };
   }
 
@@ -92,7 +107,7 @@ class ValidSourceMaps extends Audit {
 
       if (!ScriptElement.content) continue;
       if (ScriptElement.content.length < 500 * 1000) continue;
-      // if (!firstParty) continue;
+      if (!isFirstParty(ScriptElement.src, artifacts.URL.finalUrl));
 
       missingMapsForLargeFirstPartyFile = true;
       results.push({
