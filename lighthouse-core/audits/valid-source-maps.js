@@ -102,13 +102,6 @@ class ValidSourceMaps extends Audit {
       });
     }
 
-    if (SourceMaps.length === 0) {
-      return {
-        score: 1,
-        notApplicable: true,
-      };
-    }
-
     /** @type {LH.Audit.Details.Table['headings']} */
     const headings = [
       {key: 'scriptUrl', itemType: 'url', text: str_(i18n.UIStrings.columnURL)},
@@ -125,7 +118,7 @@ class ValidSourceMaps extends Audit {
     // Only fails if `missingMapsForLargeFirstPartyFile` is true. All other errors
     // are diagnostical.
     return {
-      score: Number(missingMapsForLargeFirstPartyFile),
+      score: missingMapsForLargeFirstPartyFile ? 0 : 1,
       details: Audit.makeTableDetails(headings, results),
     };
   }
