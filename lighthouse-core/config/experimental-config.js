@@ -30,6 +30,13 @@ const config = {
   categories: {
     'best-practices': {
       auditRefs: [
+        {id: 'duplicated-javascript', weight: 0, group: 'load-opportunities'},
+        {id: 'legacy-javascript', weight: 0, group: 'diagnostics'},
+      ],
+    },
+    // @ts-ignore
+    'best-practices': {
+      auditRefs: [
         {id: 'valid-source-maps', weight: 0},
       ],
     },
