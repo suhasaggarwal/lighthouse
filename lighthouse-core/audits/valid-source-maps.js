@@ -13,7 +13,7 @@ const UIStrings = {
   /** Title of a Lighthouse audit that provides detail on HTTP to HTTPS redirects. This descriptive title is shown to users when HTTP traffic is redirected to HTTPS. */
   title: 'Page has valid source maps',
   /** Title of a Lighthouse audit that provides detail on HTTP to HTTPS redirects. This descriptive title is shown to users when HTTP traffic is not redirected to HTTPS. */
-  failureTitle: 'Has invalid source maps',
+  failureTitle: 'Missing source maps for large first party JavaScript',
   /** Description of a Lighthouse audit that tells the user that their JavaScript source maps are invalid or missing. This is displayed after a user expands the section to see more. No character length limits. 'Learn More' becomes link text to additional documentation. */
   description: 'your maps are sad. [Learn more](https://web.dev/valid-source-maps).',
 };
@@ -30,7 +30,7 @@ class ValidSourceMaps extends Audit {
       title: str_(UIStrings.title),
       failureTitle: str_(UIStrings.failureTitle),
       description: str_(UIStrings.description),
-      requiredArtifacts: ['SourceMaps'],
+      requiredArtifacts: ['ScriptElements', 'SourceMaps'],
     };
   }
 
@@ -59,7 +59,7 @@ class ValidSourceMaps extends Audit {
       const map = sourceMapOrError.map;
 
       // TODO(cjamcl) validate (maybe source-map-validator) the map. Can punt this until maps
-      // are used for mapping in the report (we'd show a snippet of source code, or 
+      // are used for mapping in the report (we'd show a snippet of source code, or
       // show a source position instead of generated position).
 
       // Sources content errors.
@@ -83,8 +83,24 @@ class ValidSourceMaps extends Audit {
       });
     }
 
-    // TODO(cjamcl) find any script urls that look like bundled code but don't have
-    // a source map.
+    let missingMapsForLargeFirstPartyFile = false;
+    for (const ScriptElement of artifacts.ScriptElements) {
+      if (!ScriptElement.src) continue; // TODO: inline scripts, how do they work?
+
+      const SourceMap = SourceMaps.find(m => m.scriptUrl === ScriptElement.src);
+      if (SourceMap && SourceMap.map) continue;
+
+      if (!ScriptElement.content) continue;
+      if (ScriptElement.content.length < 500 * 1000) continue;
+      // if (!firstParty) continue;
+
+      missingMapsForLargeFirstPartyFile = true;
+      results.push({
+        scriptUrl: ScriptElement.src,
+        sourceMapUrl: SourceMap && SourceMap.sourceMapUrl,
+        error: 'Large JavaScript file is missing a source map.',
+      });
+    }
 
     if (SourceMaps.length === 0) {
       return {
@@ -105,9 +121,11 @@ class ValidSourceMaps extends Audit {
       if (!a.error && b.error) return 1;
       return b.scriptUrl.localeCompare(a.scriptUrl);
     });
-    const passed = !results.find(result => result.error);
+
+    // Only fails if `missingMapsForLargeFirstPartyFile` is true. All other errors
+    // are diagnostical.
     return {
-      score: Number(passed),
+      score: Number(missingMapsForLargeFirstPartyFile),
       details: Audit.makeTableDetails(headings, results),
     };
   }
