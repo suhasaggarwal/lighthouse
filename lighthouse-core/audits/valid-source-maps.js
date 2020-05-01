@@ -64,7 +64,7 @@ class ValidSourceMaps extends Audit {
       const SourceMap = SourceMaps.find(m => m.scriptUrl === ScriptElement.src);
       const errors = [];
       const isLargeFirstParty =
-        ScriptElement.content && ScriptElement.content.length >= 500 * 1000
+        ScriptElement.content && ScriptElement.content.length >= 500 * 1024
           && isFirstParty(ScriptElement.src, artifacts.URL.finalUrl);
 
       if (isLargeFirstParty && (!SourceMap || !SourceMap.map)) {
@@ -106,7 +106,6 @@ class ValidSourceMaps extends Audit {
       /* eslint-disable max-len */
       {key: 'scriptUrl', itemType: 'url', subRows: {key: 'errors', itemType: 'text'}, text: str_(i18n.UIStrings.columnURL)},
       {key: 'sourceMapUrl', itemType: 'url', text: 'Map URL'}, // TODO uistring
-      {key: 'error', itemType: 'code', text: 'Error'}, // TODO uistring
       /* eslint-enable max-len */
     ];
 
