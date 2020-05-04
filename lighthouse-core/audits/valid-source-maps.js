@@ -28,7 +28,7 @@ const str_ = i18n.createMessageInstanceIdFn(__filename, UIStrings);
 function isFirstParty(url, finalUrl) {
   try {
     const entity = thirdPartyWeb.getEntity(url);
-    if (!entity) return false;
+    if (!entity) return true;
     return entity === thirdPartyWeb.getEntity(finalUrl);
   } catch (_) {
     return false;
@@ -56,6 +56,9 @@ class ValidSourceMaps extends Audit {
   static audit(artifacts) {
     const {SourceMaps} = artifacts;
 
+    /** @type {Set<string>} */
+    const isMissingMapForLargeFirstPartyScriptUrl = new Set();
+
     let missingMapsForLargeFirstPartyFile = false;
     const results = [];
     for (const ScriptElement of artifacts.ScriptElements) {
@@ -69,7 +72,8 @@ class ValidSourceMaps extends Audit {
 
       if (isLargeFirstParty && (!SourceMap || !SourceMap.map)) {
         missingMapsForLargeFirstPartyFile = true;
-        errors.push('Large JavaScript file is missing a source map.');
+        isMissingMapForLargeFirstPartyScriptUrl.add(ScriptElement.src);
+        errors.push('Large JavaScript file is missing a source map');
       }
 
       if (SourceMap && !SourceMap.map) {
@@ -110,8 +114,17 @@ class ValidSourceMaps extends Audit {
     ];
 
     results.sort((a, b) => {
+      // Show the items that can fail the audit first.
+      let missingMapA = isMissingMapForLargeFirstPartyScriptUrl.has(a.scriptUrl);
+      let missingMapB = isMissingMapForLargeFirstPartyScriptUrl.has(b.scriptUrl);
+      if (missingMapA && !missingMapB) return -1;
+      if (!missingMapA && missingMapB) return 1;
+
+      // Then sort by number of errors.
       if (a.errors.length && !b.errors.length) return -1;
       if (!a.errors.length && b.errors.length) return 1;
+
+      // Then sort by script url.
       return b.scriptUrl.localeCompare(a.scriptUrl);
     });
 

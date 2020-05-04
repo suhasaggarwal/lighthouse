@@ -37,7 +37,7 @@ const config = {
     // @ts-ignore
     'best-practices': {
       auditRefs: [
-        {id: 'valid-source-maps', weight: 0},
+        {id: 'valid-source-maps', weight: 0, group: 'best-practices-general'},
       ],
     },
   },
