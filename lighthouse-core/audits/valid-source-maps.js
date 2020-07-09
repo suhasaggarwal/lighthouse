@@ -21,7 +21,12 @@ const UIStrings = {
 
 const str_ = i18n.createMessageInstanceIdFn(__filename, UIStrings);
 
+const LARGE_JS_BYTE_THRESHOLD = 500 * 1024;
+
 /**
+ * Returns true if the script URL is either:
+ * (1) a known third-party script or
+ * (2) the same as the (redirected) requested Lighthouse URL
  * @param {string} url
  * @param {string} finalUrl
  */
@@ -47,6 +52,21 @@ class ValidSourceMaps extends Audit {
       description: str_(UIStrings.description),
       requiredArtifacts: ['ScriptElements', 'SourceMaps', 'URL'],
     };
+  }
+
+  /**
+   * Returns true if the size of the script exceeds a static threshold
+   * @param {LH.Artifacts.ScriptElement} scriptElement
+   * @param {string} finalURL
+   * @return {boolean}
+   */
+  static isLargeFirstPartyJS(scriptElement, finalURL) {
+    if (scriptElement.content === null) return false;
+
+    const isLargeJS = scriptElement.content.length >= LARGE_JS_BYTE_THRESHOLD;
+    const isFirstPartyJS = scriptElement.src ? isFirstParty(scriptElement.src, finalURL) : false;
+
+    return isLargeJS && isFirstPartyJS;
   }
 
   /**
