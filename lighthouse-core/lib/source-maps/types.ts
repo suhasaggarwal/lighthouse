@@ -61,4 +61,14 @@ class BadColumnError extends BadTokenError {
   }
 }
 
-export {LineNotFoundError, BadTokenError, BadColumnError};
+interface SourceMapEntry {
+  lineNumber: number;
+  columnNumber: number;
+  sourceURL: string;
+  sourceLineNumber: number;
+  sourceColumnNumber: number;
+  name: string;
+}
+
+export {LineNotFoundError, BadTokenError, BadColumnError, SourceMapEntry};
+

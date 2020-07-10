@@ -8,6 +8,7 @@
 const thirdPartyWeb = require('third-party-web/httparchive-nostats-subset');
 const Audit = require('./audit.js');
 const i18n = require('../lib/i18n/i18n.js');
+const JsBundles = require('../computed/js-bundles.js');
 
 // TODO: web.dev docs, write description
 const UIStrings = {
@@ -71,9 +72,11 @@ class ValidSourceMaps extends Audit {
 
   /**
    * @param {LH.Artifacts} artifacts
-   * @return {LH.Audit.Product}
+   * @param {LH.Audit.Context} context
    */
-  static audit(artifacts) {
+  static async audit(artifacts, context) {
+    const bundles = await JsBundles.request(artifacts, context);
+
     const {SourceMaps} = artifacts;
 
     /** @type {Set<string>} */
@@ -88,7 +91,7 @@ class ValidSourceMaps extends Audit {
       const errors = [];
       const isLargeFirstParty =
         ScriptElement.content && ScriptElement.content.length >= 500 * 1024
-          && isFirstParty(ScriptElement.src, artifacts.URL.finalUrl);
+        && isFirstParty(ScriptElement.src, artifacts.URL.finalUrl);
 
       if (isLargeFirstParty && (!SourceMap || !SourceMap.map)) {
         missingMapsForLargeFirstPartyFile = true;
@@ -128,7 +131,12 @@ class ValidSourceMaps extends Audit {
     /** @type {LH.Audit.Details.Table['headings']} */
     const headings = [
       /* eslint-disable max-len */
-      {key: 'scriptUrl', itemType: 'url', subRows: {key: 'errors', itemType: 'text'}, text: str_(i18n.UIStrings.columnURL)},
+      {
+        key: 'scriptUrl',
+        itemType: 'url',
+        subRows: {key: 'errors', itemType: 'text'},
+        text: str_(i18n.UIStrings.columnURL)
+      },
       {key: 'sourceMapUrl', itemType: 'url', text: 'Map URL'}, // TODO uistring
       /* eslint-enable max-len */
     ];

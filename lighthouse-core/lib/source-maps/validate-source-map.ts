@@ -1,5 +1,4 @@
-import { MappingItem } from 'source-map';
-import { LineNotFoundError, BadColumnError, BadTokenError} from './types';
+import {LineNotFoundError, BadColumnError, BadTokenError, SourceMapEntry} from './types';
 
 /**
  * Validate a single mapping
@@ -8,26 +7,26 @@ import { LineNotFoundError, BadColumnError, BadTokenError} from './types';
  * @param {*} generatedLines An array of source lines from the generated (transpiled) file
  */
 function validateMapping(
-  mapping: MappingItem,
+  mapping: SourceMapEntry,
   sourceLines: Array<string>,
   generatedLines: Array<string>
 ) {
   let origLine;
   try {
-    origLine = sourceLines[mapping.originalLine - 1];
+    origLine = sourceLines[mapping.sourceLineNumber - 1];
   } catch (e) {
     /** eslint no-empty:0 */
   }
 
   if (!origLine) {
-    return new LineNotFoundError(mapping.source, {
-      line: mapping.originalLine,
-      column: mapping.originalColumn
+    return new LineNotFoundError(mapping.sourceURL, {
+      line: mapping.sourceLineNumber,
+      column: mapping.sourceColumnNumber
     });
   }
 
   let sourceToken = origLine
-    .slice(mapping.originalColumn, mapping.originalColumn + mapping.name.length)
+    .slice(mapping.sourceLineNumber, mapping.sourceColumnNumber + mapping.name.length)
     .trim();
 
   // Token matches what we expect; everything looks good, bail out
@@ -41,8 +40,8 @@ function validateMapping(
   if (sourceToken.startsWith("'") || sourceToken.startsWith('"')) {
     sourceToken = origLine
       .slice(
-        mapping.originalColumn + 1,
-        mapping.originalColumn + mapping.name.length + 1
+        mapping.sourceColumnNumber + 1,
+        mapping.sourceColumnNumber + mapping.name.length + 1
       )
       .trim();
   }
@@ -56,18 +55,18 @@ function validateMapping(
   const ErrorClass =
     origLine.indexOf(mapping.name) > -1 ? BadColumnError : BadTokenError;
 
-  const { generatedColumn } = mapping;
+  const generatedColumn = mapping.columnNumber;
 
   let generatedLine;
   try {
-    generatedLine = generatedLines[mapping.generatedLine - 1];
+    generatedLine = generatedLines[mapping.lineNumber - 1];
   } catch (e) {} // eslint-disable-line no-empty
 
   // Take 5 lines of original context
   const contextLines: Array<[number, string]> = [];
   for (
-    let i = Math.max(mapping.originalLine - 3, 0);
-    i < mapping.originalLine + 2 && i < sourceLines.length;
+    let i = Math.max(mapping.sourceLineNumber - 3, 0);
+    i < mapping.sourceLineNumber + 2 && i < sourceLines.length;
     i++
   ) {
     contextLines.push([i + 1, sourceLines[i]]);
@@ -79,16 +78,16 @@ function validateMapping(
     generatedColumn + 50
   );
 
-  return new ErrorClass(mapping.source, {
+  return new ErrorClass(mapping.sourceURL, {
     token: sourceToken,
     expected: mapping.name,
     mapping: {
       originalContext: contextLines,
-      originalLine: mapping.originalLine,
-      originalColumn: mapping.originalColumn,
+      originalLine: mapping.sourceLineNumber,
+      originalColumn: mapping.sourceColumnNumber,
       generatedContext,
-      generatedLine: mapping.generatedLine,
-      generatedColumn: mapping.generatedColumn
+      generatedLine: mapping.lineNumber,
+      generatedColumn: mapping.columnNumber
     }
   });
 }
