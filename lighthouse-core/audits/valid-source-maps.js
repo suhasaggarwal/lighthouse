@@ -177,7 +177,7 @@ class ValidSourceMaps extends Audit {
         results.push({
           scriptUrl: ScriptElement.src,
           sourceMapUrl: SourceMap && SourceMap.sourceMapUrl,
-          errors,
+          errors: errors.length ? [errors[0]] : errors,
         });
       }
     }

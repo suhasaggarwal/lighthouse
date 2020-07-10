@@ -99,7 +99,7 @@ class MapValidator {
     }
 
     let sourceToken = origLine
-      .slice(mapping.sourceLineNumber, mapping.sourceColumnNumber + mapping.name.length)
+      .slice(mapping.sourceColumnNumber, mapping.sourceColumnNumber + mapping.name.length)
       .trim();
 
     // Token matches what we expect; everything looks good, bail out
