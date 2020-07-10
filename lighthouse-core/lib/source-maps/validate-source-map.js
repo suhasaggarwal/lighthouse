@@ -6,15 +6,6 @@
 'use strict';
 
 class LineNotFoundError extends Error {
-  /** @type {string} */
-  source;
-  /** @type {number} */
-  column;
-  /** @type {number} */
-  line;
-  /** @type {Array<string>} */
-  resolutions;
-
   /**
    * @param {string} source
    * @param {{ line: number; column: number }} options
@@ -28,21 +19,13 @@ class LineNotFoundError extends Error {
     this.line = line;
     this.column = column;
     this.message = 'Line not found in source file';
+
+    /** @type {string[]} */
     this.resolutions = [];
   }
 }
 
 class BadTokenError extends Error {
-  /** @type {string} */
-  source;
-  /** @type {string} */
-  token;
-  /** @type {string} */
-  expected;
-  /** @type {LHSourceMap.Entry} */
-  mapping;
-  /** @type {Array<string>} */
-  resolutions;
 
   /**
    * @param {string} source
@@ -57,8 +40,9 @@ class BadTokenError extends Error {
     this.token = token;
     this.expected = expected;
     this.mapping = mapping;
-
     this.message = 'Expected token not in correct location';
+
+    /** @type {string[]} */
     this.resolutions = [];
   }
 }

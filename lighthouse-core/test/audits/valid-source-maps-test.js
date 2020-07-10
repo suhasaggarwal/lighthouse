@@ -35,5 +35,8 @@ describe('valid-source-maps', () => {
       const sourceLines = ValidSourceMaps.getSourceLines(bundle, mapping);
       allSourceLines.push(sourceLines);
     });
+
+    // eslint-disable-next-line no-console
+    console.log(allSourceLines);
   });
 });
