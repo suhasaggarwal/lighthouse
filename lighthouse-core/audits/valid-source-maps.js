@@ -72,16 +72,46 @@ class ValidSourceMaps extends Audit {
   }
 
   /**
+   * @param {LH.Artifacts.Bundle} bundle
+   * @param {LHSourceMap.Entry} mapping
+   * @return {string[] | null}
+   */
+  static getSourceLines(bundle, mapping) {
+    if (bundle.rawMap && bundle.rawMap.sourcesContent) {
+      const index = bundle.rawMap.sourcesContent.indexOf(mapping.sourceURL);
+
+      if (index >= 0) {
+        return bundle.rawMap.sourcesContent[index].split('\n');
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * @param {LH.Artifacts.SourceMap} sourceMap
    * @param {LH.Artifacts.Bundle[]} bundles
    * @param {any[]} errors
    */
   static validateMap(sourceMap, bundles, errors) {
     bundles.forEach(bundle => {
-      if (bundle.script.src === sourceMap.scriptUrl && bundle.map && bundle.map._mappings) {
-        bundle.map._mappings.forEach(mapping => {
-          const newErrors = MapValidator.MapValidator.validateMapping(mapping, _, _);
-          if (newErrors) errors.push(newErrors);
+      if (bundle.script.src === sourceMap.scriptUrl &&
+        bundle.map && bundle.map._mappings &&
+        bundle.script && bundle.script.content &&
+        bundle.rawMap && bundle.rawMap.sourcesContent) {
+        const generatedLines = bundle.script.content.split('\n');
+        bundle.map._mappings.forEach((mapping) => {
+          const sourceLines = this.getSourceLines(bundle, mapping);
+
+          if (sourceLines) {
+            const newErrors = MapValidator.MapValidator.validateMapping(
+                                                            mapping,
+                                                            sourceLines,
+                                                            generatedLines);
+            if (newErrors) errors.push(newErrors);
+          } else {
+            // Some kind of error happened, what should we push?
+          }
         });
       }
     });
