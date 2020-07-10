@@ -106,9 +106,7 @@ class ValidSourceMaps extends Audit {
 
       const SourceMap = SourceMaps.find(m => m.scriptUrl === ScriptElement.src);
       const errors = [];
-      const isLargeFirstParty =
-        ScriptElement.content && ScriptElement.content.length >= 500 * 1024
-        && isFirstParty(ScriptElement.src, artifacts.URL.finalUrl);
+      const isLargeFirstParty = this.isLargeFirstPartyJS(ScriptElement, artifacts.URL.finalUrl);
 
       if (isLargeFirstParty && (!SourceMap || !SourceMap.map)) {
         missingMapsForLargeFirstPartyFile = true;
