@@ -9,6 +9,7 @@ const thirdPartyWeb = require('third-party-web/httparchive-nostats-subset');
 const Audit = require('./audit.js');
 const i18n = require('../lib/i18n/i18n.js');
 const JsBundles = require('../computed/js-bundles.js');
+const MapValidator = require('../lib/source-maps/validate-source-map.js');
 
 // TODO: web.dev docs, write description
 const UIStrings = {
@@ -71,6 +72,18 @@ class ValidSourceMaps extends Audit {
   }
 
   /**
+   * @param {LH.Artifacts.SourceMap} sourceMap
+   * @param {any} bundles
+   * @param {any[]} errors
+   */
+  static validateMap(sourceMap, bundles, errors) {
+    // eslint-disable-next-line no-console
+    console.log('hi');
+    // @ts-ignore
+    MapValidator.MapValidator.validateMapping(sourceMap);
+  }
+
+  /**
    * @param {LH.Artifacts} artifacts
    * @param {LH.Audit.Context} context
    */
@@ -113,6 +126,8 @@ class ValidSourceMaps extends Audit {
         if (missingSourcesContentCount > 0) {
           errors.push(`missing ${missingSourcesContentCount} items in \`.sourcesContent\``);
         }
+
+        this.validateMap(SourceMap, bundles, errors);
       }
 
       // TODO(cjamcl) validate (maybe source-map-validator) the map. Can punt this until maps
@@ -135,7 +150,7 @@ class ValidSourceMaps extends Audit {
         key: 'scriptUrl',
         itemType: 'url',
         subRows: {key: 'errors', itemType: 'text'},
-        text: str_(i18n.UIStrings.columnURL)
+        text: str_(i18n.UIStrings.columnURL),
       },
       {key: 'sourceMapUrl', itemType: 'url', text: 'Map URL'}, // TODO uistring
       /* eslint-enable max-len */
@@ -143,8 +158,8 @@ class ValidSourceMaps extends Audit {
 
     results.sort((a, b) => {
       // Show the items that can fail the audit first.
-      let missingMapA = isMissingMapForLargeFirstPartyScriptUrl.has(a.scriptUrl);
-      let missingMapB = isMissingMapForLargeFirstPartyScriptUrl.has(b.scriptUrl);
+      const missingMapA = isMissingMapForLargeFirstPartyScriptUrl.has(a.scriptUrl);
+      const missingMapB = isMissingMapForLargeFirstPartyScriptUrl.has(b.scriptUrl);
       if (missingMapA && !missingMapB) return -1;
       if (!missingMapA && missingMapB) return 1;
 
