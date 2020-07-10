@@ -78,7 +78,7 @@ class ValidSourceMaps extends Audit {
    */
   static getSourceLines(bundle, mapping) {
     if (bundle.rawMap && bundle.rawMap.sourcesContent) {
-      const index = bundle.rawMap.sourcesContent.indexOf(mapping.sourceURL);
+      const index = bundle.rawMap.sources.indexOf(mapping.sourceURL);
 
       if (index >= 0) {
         return bundle.rawMap.sourcesContent[index].split('\n');
@@ -94,27 +94,34 @@ class ValidSourceMaps extends Audit {
    * @param {any[]} errors
    */
   static validateMap(sourceMap, bundles, errors) {
-    bundles.forEach(bundle => {
-      if (bundle.script.src === sourceMap.scriptUrl &&
-        bundle.map && bundle.map._mappings &&
-        bundle.script && bundle.script.content &&
-        bundle.rawMap && bundle.rawMap.sourcesContent) {
-        const generatedLines = bundle.script.content.split('\n');
-        bundle.map._mappings.forEach((mapping) => {
-          const sourceLines = this.getSourceLines(bundle, mapping);
+    if (bundles) {
+      for (let i = 0; i < bundles.length; i++) {
+        const bundle = bundles[i];
 
-          if (sourceLines) {
-            const newErrors = MapValidator.MapValidator.validateMapping(
-                                                            mapping,
-                                                            sourceLines,
-                                                            generatedLines);
-            if (newErrors) errors.push(newErrors);
-          } else {
-            // Some kind of error happened, what should we push?
-          }
-        });
+        if (bundle.script.src === sourceMap.scriptUrl &&
+          bundle.map && bundle.map._mappings &&
+          bundle.script && bundle.script.content &&
+          bundle.rawMap && bundle.rawMap.sourcesContent) {
+          const generatedLines = bundle.script.content.split('\n');
+
+          bundle.map._mappings.forEach((mapping) => {
+            const sourceLines = this.getSourceLines(bundle, mapping);
+
+            if (sourceLines) {
+              const newError = MapValidator.MapValidator.validateMapping(
+                  mapping,
+                  sourceLines,
+                  generatedLines);
+              if (newError) errors.push(newError.message);
+            } else {
+              // Some kind of error happened, what should we push?
+            }
+          });
+        }
       }
-    });
+    }
+
+    return errors;
   }
 
   /**
@@ -135,7 +142,7 @@ class ValidSourceMaps extends Audit {
       if (!ScriptElement.src) continue; // TODO: inline scripts, how do they work?
 
       const SourceMap = SourceMaps.find(m => m.scriptUrl === ScriptElement.src);
-      const errors = [];
+      let errors = [];
       const isLargeFirstParty = this.isLargeFirstPartyJS(ScriptElement, artifacts.URL.finalUrl);
 
       if (isLargeFirstParty && (!SourceMap || !SourceMap.map)) {
@@ -159,7 +166,7 @@ class ValidSourceMaps extends Audit {
           errors.push(`missing ${missingSourcesContentCount} items in \`.sourcesContent\``);
         }
 
-        this.validateMap(SourceMap, bundles, errors);
+        errors = this.validateMap(SourceMap, bundles, errors);
       }
 
       // TODO(cjamcl) validate (maybe source-map-validator) the map. Can punt this until maps

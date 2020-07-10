@@ -82,6 +82,8 @@ class MapValidator {
    * @param {string[]} generatedLines
    */
   static validateMapping(mapping, sourceLines, generatedLines) {
+    if (!mapping.name) return {message: "Mapping has no name"};
+
     let origLine;
     try {
       origLine = sourceLines[mapping.sourceLineNumber - 1];
