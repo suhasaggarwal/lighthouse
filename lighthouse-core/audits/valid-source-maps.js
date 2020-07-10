@@ -73,14 +73,18 @@ class ValidSourceMaps extends Audit {
 
   /**
    * @param {LH.Artifacts.SourceMap} sourceMap
-   * @param {any} bundles
+   * @param {LH.Artifacts.Bundle[]} bundles
    * @param {any[]} errors
    */
   static validateMap(sourceMap, bundles, errors) {
-    // eslint-disable-next-line no-console
-    console.log('hi');
-    // @ts-ignore
-    MapValidator.MapValidator.validateMapping(sourceMap);
+    bundles.forEach(bundle => {
+      if (bundle.script.src === sourceMap.scriptUrl && bundle.map && bundle.map._mappings) {
+        bundle.map._mappings.forEach(mapping => {
+          const newErrors = MapValidator.MapValidator.validateMapping(mapping, _, _);
+          if (newErrors) errors.push(newErrors);
+        });
+      }
+    });
   }
 
   /**
