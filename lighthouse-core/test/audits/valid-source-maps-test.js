@@ -7,8 +7,10 @@
 
 /* eslint-env jest */
 const ValidSourceMaps = require('../../audits/valid-source-maps.js');
+const assert = require('assert').strict;
 const fs = require('fs');
 const JSBundles = require('../../computed/js-bundles.js');
+const MapValidator = require('../../lib/source-maps/validate-source-map.js');
 
 function load(name) {
   const mapJson = fs.readFileSync(`${__dirname}/../fixtures/source-maps/${name}.js.map`, 'utf-8');
@@ -17,26 +19,41 @@ function load(name) {
 }
 
 describe('valid-source-maps', () => {
-  it('should retrieve source lines', async () => {
-    const source = fs.readFileSync(`${__dirname}/../fixtures/source-maps/angular.js`, 'utf-8');
-    const {map, content} = load('angular.min');
-    const artifacts = {
-      SourceMaps: [{scriptUrl: 'https://example.com/foo.min.js', map}],
-      ScriptElements: [{src: 'https://example.com/foo.min.js', content}],
+  let artifacts;
+  let context;
+  let bundles;
+
+  beforeEach(async ()=> {
+    const {map, content} = load('squoosh');
+    artifacts = {
+      SourceMaps: [{scriptUrl: 'https://example.com/sourcemap.min.js', map}],
+      ScriptElements: [{src: 'https://example.com/sourcemap.min.js', content}],
     };
 
-    const context = {computedCache: new Map()};
-    const bundles = await JSBundles.request(artifacts, context);
+    context = {computedCache: new Map()};
+    bundles = await JSBundles.request(artifacts, context);
+  });
+
+  it('should retrieve source lines', async () => {
     expect(bundles).toHaveLength(1);
 
     const bundle = bundles[0];
-    const allSourceLines = [];
-    bundle.map._mappings.forEach((mapping) => {
-      const sourceLines = ValidSourceMaps.getSourceLines(bundle, mapping);
-      allSourceLines.push(sourceLines);
-    });
+    const sourceLines = [];
+    for (const mapping of bundle.map._mappings) {
+      sourceLines.push(ValidSourceMaps.getSourceLines(bundle, mapping));
+    }
 
-    // eslint-disable-next-line no-console
-    console.log(allSourceLines);
+    // do validation of the source lines here
+  });
+
+  it('should validate the source map', async () => {
+    expect(bundles).toHaveLength(1);
+    const {SourceMaps, ScriptElements} = artifacts;
+
+    for (const ScriptElement of ScriptElements) {
+      const SourceMap = SourceMaps.find(m => m.scriptUrl === ScriptElement.src);
+      const errors = ValidSourceMaps.validateMap(SourceMap, bundles, []);
+      console.log(errors);
+    }
   });
 });

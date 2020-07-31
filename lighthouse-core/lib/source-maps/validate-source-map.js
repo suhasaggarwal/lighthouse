@@ -8,7 +8,7 @@
 class LineNotFoundError extends Error {
   /**
    * @param {string} source
-   * @param {{ line: number; column: number }} options
+   * @param {{ line: number, column: number }} options
    */
   constructor(source, options) {
     super();
@@ -29,7 +29,7 @@ class BadTokenError extends Error {
 
   /**
    * @param {string} source
-   * @param {{ token: string; expected: string; mapping: LHSourceMap.Entry }} options
+   * @param {{ token: string, expected: string, mapping: LHSourceMap.Entry }} options
    */
   constructor(source, options) {
     super();
@@ -50,7 +50,7 @@ class BadTokenError extends Error {
 class BadColumnError extends BadTokenError {
   /**
    * @param {string} source
-   * @param {{ token: string; expected: string; mapping: LHSourceMap.Entry }} options
+   * @param {{ token: string, expected: string, mapping: LHSourceMap.Entry }} options
    */
   constructor(source, options) {
     super(source, options);
