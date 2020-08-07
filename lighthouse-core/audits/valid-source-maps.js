@@ -14,9 +14,9 @@ const UIStrings = {
   /** Title of a Lighthouse audit that provides detail on HTTP to HTTPS redirects. This descriptive title is shown to users when HTTP traffic is redirected to HTTPS. */
   title: 'Page has valid source maps',
   /** Title of a Lighthouse audit that provides detail on HTTP to HTTPS redirects. This descriptive title is shown to users when HTTP traffic is not redirected to HTTPS. */
-  failureTitle: 'Missing source maps for large first party JavaScript',
+  failureTitle: 'Missing source maps for large first-party JavaScript',
   /** Description of a Lighthouse audit that tells the user that their JavaScript source maps are invalid or missing. This is displayed after a user expands the section to see more. No character length limits. 'Learn More' becomes link text to additional documentation. */
-  description: 'your maps are sad. [Learn more](https://web.dev/valid-source-maps).',
+  description: 'Your maps. [Learn more](https://web.dev/valid-source-maps).',
 };
 
 const str_ = i18n.createMessageInstanceIdFn(__filename, UIStrings);

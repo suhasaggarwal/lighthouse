@@ -16,7 +16,6 @@ const config = {
   audits: [
     'byte-efficiency/duplicated-javascript',
     'legacy-javascript',
-    'valid-source-maps',
   ],
   passes: [{
     passName: 'defaultPass',
@@ -34,13 +33,6 @@ const config = {
       auditRefs: [
         {id: 'duplicated-javascript', weight: 0, group: 'load-opportunities'},
         {id: 'legacy-javascript', weight: 0, group: 'diagnostics'},
-        {id: 'valid-source-maps', weight: 0},
-      ],
-    },
-    // @ts-ignore
-    'best-practices': {
-      auditRefs: [
-        {id: 'valid-source-maps', weight: 0, group: 'best-practices-general'},
       ],
     },
   },
