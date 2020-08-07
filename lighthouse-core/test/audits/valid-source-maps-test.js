@@ -7,10 +7,8 @@
 
 /* eslint-env jest */
 const ValidSourceMaps = require('../../audits/valid-source-maps.js');
-const assert = require('assert').strict;
 const fs = require('fs');
 const JSBundles = require('../../computed/js-bundles.js');
-const MapValidator = require('../../lib/source-maps/validate-source-map.js');
 
 function load(name) {
   const mapJson = fs.readFileSync(`${__dirname}/../fixtures/source-maps/${name}.js.map`, 'utf-8');
@@ -34,26 +32,4 @@ describe('valid-source-maps', () => {
     bundles = await JSBundles.request(artifacts, context);
   });
 
-  it('should retrieve source lines', async () => {
-    expect(bundles).toHaveLength(1);
-
-    const bundle = bundles[0];
-    const sourceLines = [];
-    for (const mapping of bundle.map._mappings) {
-      sourceLines.push(ValidSourceMaps.getSourceLines(bundle, mapping));
-    }
-
-    // do validation of the source lines here
-  });
-
-  it('should validate the source map', async () => {
-    expect(bundles).toHaveLength(1);
-    const {SourceMaps, ScriptElements} = artifacts;
-
-    for (const ScriptElement of ScriptElements) {
-      const SourceMap = SourceMaps.find(m => m.scriptUrl === ScriptElement.src);
-      const errors = ValidSourceMaps.validateMap(SourceMap, bundles, []);
-      console.log(errors);
-    }
-  });
 });
