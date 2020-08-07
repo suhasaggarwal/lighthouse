@@ -8,8 +8,6 @@
 const thirdPartyWeb = require('third-party-web/httparchive-nostats-subset');
 const Audit = require('./audit.js');
 const i18n = require('../lib/i18n/i18n.js');
-const JsBundles = require('../computed/js-bundles.js');
-const MapValidator = require('../lib/source-maps/validate-source-map.js');
 
 // TODO: web.dev docs, write description
 const UIStrings = {
@@ -72,65 +70,10 @@ class ValidSourceMaps extends Audit {
   }
 
   /**
-   * @param {LH.Artifacts.Bundle} bundle
-   * @param {LHSourceMap.Entry} mapping
-   * @return {string[] | null}
-   */
-  static getSourceLines(bundle, mapping) {
-    if (bundle.rawMap && bundle.rawMap.sourcesContent) {
-      const index = bundle.rawMap.sources.indexOf(mapping.sourceURL);
-
-      if (index >= 0) {
-        return bundle.rawMap.sourcesContent[index].split('\n');
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * @param {LH.Artifacts.SourceMap} sourceMap
-   * @param {LH.Artifacts.Bundle[]} bundles
-   * @param {any[]} errors
-   */
-  static validateMap(sourceMap, bundles, errors) {
-    if (bundles) {
-      for (let i = 0; i < bundles.length; i++) {
-        const bundle = bundles[i];
-
-        if (bundle.script.src === sourceMap.scriptUrl &&
-          bundle.map && bundle.map._mappings &&
-          bundle.script && bundle.script.content &&
-          bundle.rawMap && bundle.rawMap.sourcesContent) {
-          const generatedLines = bundle.script.content.split('\n');
-
-          bundle.map._mappings.forEach((mapping) => {
-            const sourceLines = this.getSourceLines(bundle, mapping);
-
-            if (sourceLines) {
-              const newError = MapValidator.MapValidator.validateMapping(
-                  mapping,
-                  sourceLines,
-                  generatedLines);
-              if (newError) errors.push(newError.message);
-            } else {
-              // Some kind of error happened, what should we push?
-            }
-          });
-        }
-      }
-    }
-
-    return errors;
-  }
-
-  /**
    * @param {LH.Artifacts} artifacts
-   * @param {LH.Audit.Context} context
+   * @param {LH.Audit.Context} _
    */
-  static async audit(artifacts, context) {
-    const bundles = await JsBundles.request(artifacts, context);
-
+  static async audit(artifacts, _) {
     const {SourceMaps} = artifacts;
 
     /** @type {Set<string>} */
@@ -142,7 +85,7 @@ class ValidSourceMaps extends Audit {
       if (!ScriptElement.src) continue; // TODO: inline scripts, how do they work?
 
       const SourceMap = SourceMaps.find(m => m.scriptUrl === ScriptElement.src);
-      let errors = [];
+      const errors = [];
       const isLargeFirstParty = this.isLargeFirstPartyJS(ScriptElement, artifacts.URL.finalUrl);
 
       if (isLargeFirstParty && (!SourceMap || !SourceMap.map)) {
@@ -163,15 +106,9 @@ class ValidSourceMaps extends Audit {
           if (sourcesContent.length < i || !sourcesContent[i]) missingSourcesContentCount += 1;
         }
         if (missingSourcesContentCount > 0) {
-          errors.push(`missing ${missingSourcesContentCount} items in \`.sourcesContent\``);
+          errors.push(`Missing ${missingSourcesContentCount} items in \`.sourcesContent\``);
         }
-
-        errors = this.validateMap(SourceMap, bundles, errors);
       }
-
-      // TODO(cjamcl) validate (maybe source-map-validator) the map. Can punt this until maps
-      // are used for mapping in the report (we'd show a snippet of source code, or
-      // show a source position instead of generated position).
 
       if (SourceMap || errors.length) {
         results.push({
@@ -182,7 +119,7 @@ class ValidSourceMaps extends Audit {
       }
     }
 
-    /** @type {LH.Audit.Details.Table['headings']} */
+    /** @type {LH.Audit.Details.TableColumnHeading[]} */
     const headings = [
       /* eslint-disable max-len */
       {
@@ -210,8 +147,7 @@ class ValidSourceMaps extends Audit {
       return b.scriptUrl.localeCompare(a.scriptUrl);
     });
 
-    // Only fails if `missingMapsForLargeFirstPartyFile` is true. All other errors
-    // are diagnostical.
+    // Only fails if `missingMapsForLargeFirstPartyFile` is true. All other errors are diagnostical.
     return {
       score: missingMapsForLargeFirstPartyFile ? 0 : 1,
       details: Audit.makeTableDetails(headings, results),
