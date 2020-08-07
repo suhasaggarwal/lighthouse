@@ -1310,6 +1310,15 @@
   "lighthouse-core/audits/uses-rel-preload.js | title": {
     "message": "Preload key requests"
   },
+  "lighthouse-core/audits/valid-source-maps.js | description": {
+    "message": "Source maps translate your minified code to the original source code which helps with debugging, and tracking down bugs in production. Consider enabling or updating source maps during JavaScript bundling to take advantage of this feature. [Learn more](https://developers.google.com/web/tools/chrome-devtools/javascript/source-maps)."
+  },
+  "lighthouse-core/audits/valid-source-maps.js | failureTitle": {
+    "message": "Missing source maps for large first-party JavaScript"
+  },
+  "lighthouse-core/audits/valid-source-maps.js | title": {
+    "message": "Page has valid source maps"
+  },
   "lighthouse-core/audits/viewport.js | description": {
     "message": "Add a `<meta name=\"viewport\">` tag to optimize your app for mobile screens. [Learn more](https://web.dev/viewport/)."
   },

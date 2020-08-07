@@ -1310,6 +1310,15 @@
   "lighthouse-core/audits/uses-rel-preload.js | title": {
     "message": "P̂ŕêĺôád̂ ḱêý r̂éq̂úêśt̂ś"
   },
+  "lighthouse-core/audits/valid-source-maps.js | description": {
+    "message": "Ŝóûŕĉé m̂áp̂ś t̂ŕâńŝĺât́ê ýôúr̂ ḿîńîf́îéd̂ ćôd́ê t́ô t́ĥé ôŕîǵîńâĺ ŝóûŕĉé ĉód̂é ŵh́îćĥ h́êĺp̂ś ŵít̂h́ d̂éb̂úĝǵîńĝ, án̂d́ t̂ŕâćk̂ín̂ǵ d̂óŵń b̂úĝś îń p̂ŕôd́ûćt̂íôń. Ĉón̂śîd́êŕ êńâb́l̂ín̂ǵ ôŕ ûṕd̂át̂ín̂ǵ ŝóûŕĉé m̂áp̂ś d̂úr̂ín̂ǵ Ĵáv̂áŜćr̂íp̂t́ b̂ún̂d́l̂ín̂ǵ t̂ó t̂ák̂é âd́v̂án̂t́âǵê óf̂ t́ĥíŝ f́êát̂úr̂é. [L̂éâŕn̂ ḿôŕê](https://developers.google.com/web/tools/chrome-devtools/javascript/source-maps)."
+  },
+  "lighthouse-core/audits/valid-source-maps.js | failureTitle": {
+    "message": "M̂íŝśîńĝ śôúr̂ćê ḿâṕŝ f́ôŕ l̂ár̂ǵê f́îŕŝt́-p̂ár̂t́ŷ J́âv́âŚĉŕîṕt̂"
+  },
+  "lighthouse-core/audits/valid-source-maps.js | title": {
+    "message": "P̂áĝé ĥáŝ v́âĺîd́ ŝóûŕĉé m̂áp̂ś"
+  },
   "lighthouse-core/audits/viewport.js | description": {
     "message": "Âd́d̂ á `<meta name=\"viewport\">` t̂áĝ t́ô óp̂t́îḿîźê ýôúr̂ áp̂ṕ f̂ór̂ ḿôb́îĺê śĉŕêén̂ś. [L̂éâŕn̂ ḿôŕê](https://web.dev/viewport/)."
   },

@@ -169,6 +169,9 @@ Object {
       "path": "unsized-images",
     },
     Object {
+      "path": "valid-source-maps",
+    },
+    Object {
       "path": "manual/pwa-cross-browser",
     },
     Object {
@@ -780,6 +783,11 @@ Object {
           "group": "best-practices-general",
           "id": "errors-in-console",
           "weight": 1,
+        },
+        Object {
+          "group": "best-practices-general",
+          "id": "valid-source-maps",
+          "weight": 0,
         },
       ],
       "title": "Best Practices",

@@ -1918,6 +1918,18 @@
         ]
       }
     },
+    "valid-source-maps": {
+      "id": "valid-source-maps",
+      "title": "Page has valid source maps",
+      "description": "Source maps translate your minified code to the original source code which helps with debugging, and tracking down bugs in production. Consider enabling or updating source maps during JavaScript bundling to take advantage of this feature. [Learn more](https://developers.google.com/web/tools/chrome-devtools/javascript/source-maps).",
+      "score": 1,
+      "scoreDisplayMode": "binary",
+      "details": {
+        "type": "table",
+        "headings": [],
+        "items": []
+      }
+    },
     "pwa-cross-browser": {
       "id": "pwa-cross-browser",
       "title": "Site works cross-browser",
@@ -4755,6 +4767,11 @@
           "id": "errors-in-console",
           "weight": 1,
           "group": "best-practices-general"
+        },
+        {
+          "id": "valid-source-maps",
+          "weight": 0,
+          "group": "best-practices-general"
         }
       ],
       "id": "best-practices",
@@ -5568,6 +5585,12 @@
       {
         "startTime": 0,
         "name": "lh:audit:unsized-images",
+        "duration": 100,
+        "entryType": "measure"
+      },
+      {
+        "startTime": 0,
+        "name": "lh:audit:valid-source-maps",
         "duration": 100,
         "entryType": "measure"
       },
@@ -6869,6 +6892,12 @@
         "audits[link-name].details.headings[0].text",
         "audits[object-alt].details.headings[0].text",
         "audits[password-inputs-can-be-pasted-into].details.headings[0].text"
+      ],
+      "lighthouse-core/audits/valid-source-maps.js | title": [
+        "audits[valid-source-maps].title"
+      ],
+      "lighthouse-core/audits/valid-source-maps.js | description": [
+        "audits[valid-source-maps].description"
       ],
       "lighthouse-core/audits/manual/pwa-cross-browser.js | title": [
         "audits[pwa-cross-browser].title"
