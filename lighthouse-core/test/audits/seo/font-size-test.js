@@ -44,8 +44,8 @@ describe('SEO: Font size audit', () => {
         failingTextLength: 41,
         analyzedFailingTextLength: 41,
         analyzedFailingNodesData: [
-          {nodeId: 1, textLength: 10, fontSize: 10, parentNode: {nodeName: 'p', attributes: []}},
-          {nodeId: 2, textLength: 31, fontSize: 11, parentNode: {nodeName: 'p', attributes: []}},
+          {textLength: 10, fontSize: 10, node: {nodeId: 1, localName: 'p', attributes: []}},
+          {textLength: 31, fontSize: 11, node: {nodeId: 2, localName: 'p', attributes: []}},
         ],
       },
       TestedAsMobileDevice: true,
@@ -65,7 +65,7 @@ describe('SEO: Font size audit', () => {
         failingTextLength: 0,
         analyzedFailingTextLength: 0,
         analyzedFailingNodesData: [
-          {nodeId: 1, textLength: 0, fontSize: 11, parentNode: {nodeName: 'p', attributes: []}},
+          {textLength: 0, fontSize: 11, node: {nodeId: 1, localName: 'p', attributes: []}},
         ],
       },
       TestedAsMobileDevice: true,
@@ -84,8 +84,8 @@ describe('SEO: Font size audit', () => {
         failingTextLength: 33,
         analyzedFailingTextLength: 33,
         analyzedFailingNodesData: [
-          {nodeId: 1, textLength: 11, fontSize: 10, parentNode: {nodeName: 'p', attributes: []}},
-          {nodeId: 2, textLength: 22, fontSize: 11, parentNode: {nodeName: 'p', attributes: []}},
+          {textLength: 11, fontSize: 10, node: {nodeId: 1, localName: 'p', attributes: []}},
+          {textLength: 22, fontSize: 11, node: {nodeId: 2, localName: 'p', attributes: []}},
         ],
       },
       TestedAsMobileDevice: true,
@@ -120,9 +120,9 @@ describe('SEO: Font size audit', () => {
         failingTextLength: 7,
         analyzedFailingTextLength: 7,
         analyzedFailingNodesData: [
-          {nodeId: 1, textLength: 3, fontSize: 11, parentNode: {}, cssRule: style1},
-          {nodeId: 2, textLength: 2, fontSize: 10, parentNode: {}, cssRule: style2},
-          {nodeId: 3, textLength: 2, fontSize: 10, parentNode: {}, cssRule: style2},
+          {textLength: 3, fontSize: 11, node: {nodeId: 1}, cssRule: style1},
+          {textLength: 2, fontSize: 10, node: {nodeId: 2}, cssRule: style2},
+          {textLength: 2, fontSize: 10, node: {nodeId: 3}, cssRule: style2},
         ],
       },
       TestedAsMobileDevice: true,
@@ -144,7 +144,7 @@ describe('SEO: Font size audit', () => {
         failingTextLength: 50,
         analyzedFailingTextLength: 10,
         analyzedFailingNodesData: [
-          {textLength: 10, fontSize: 10, parentNode: {nodeId: 1, nodeName: 'p', attributes: []}},
+          {textLength: 10, fontSize: 10, node: {nodeId: 1, localName: 'p', attributes: []}},
         ],
       },
       TestedAsMobileDevice: true,
@@ -169,7 +169,7 @@ describe('SEO: Font size audit', () => {
         failingTextLength: 50,
         analyzedFailingTextLength: 50,
         analyzedFailingNodesData: [
-          {textLength: 50, fontSize: 10, parentNode: {nodeId: 1, nodeName: 'p', attributes: []}},
+          {textLength: 50, fontSize: 10, node: {nodeId: 1, localName: 'p', attributes: []}},
         ],
       },
       TestedAsMobileDevice: true,
@@ -188,8 +188,8 @@ describe('SEO: Font size audit', () => {
         failingTextLength: 33,
         analyzedFailingTextLength: 33,
         analyzedFailingNodesData: [
-          {textLength: 11, fontSize: 10, parentNode: {nodeId: 1, nodeName: 'p', attributes: []}},
-          {textLength: 22, fontSize: 11, parentNode: {nodeId: 2, nodeName: 'p', attributes: []}},
+          {textLength: 11, fontSize: 10, node: {nodeId: 1, localName: 'p', attributes: []}},
+          {textLength: 22, fontSize: 11, node: {nodeId: 2, localName: 'p', attributes: []}},
         ],
       },
       TestedAsMobileDevice: true,
@@ -207,8 +207,8 @@ describe('SEO: Font size audit', () => {
         failingTextLength: 315,
         analyzedFailingTextLength: 315,
         analyzedFailingNodesData: [
-          {textLength: 311, fontSize: 10, parentNode: {nodeId: 1, nodeName: 'p', attributes: []}},
-          {textLength: 4, fontSize: 11, parentNode: {nodeId: 2, nodeName: 'p', attributes: []}},
+          {textLength: 311, fontSize: 10, node: {nodeId: 1, localName: 'p', attributes: []}},
+          {textLength: 4, fontSize: 11, node: {nodeId: 2, localName: 'p', attributes: []}},
         ],
       },
       TestedAsMobileDevice: true,
@@ -236,7 +236,7 @@ describe('SEO: Font size audit', () => {
         MetaElements: makeMetaElements(validViewport),
         FontSize: {
           analyzedFailingNodesData: [
-            {textLength: 1, fontSize: 1, parentNode: {...nodeProperties}, cssRule: style},
+            {textLength: 1, fontSize: 1, node: {nodeId: 1, ...nodeProperties}, cssRule: style},
           ],
         },
         TestedAsMobileDevice: true,
@@ -251,7 +251,7 @@ describe('SEO: Font size audit', () => {
         type: 'Inline',
       }, {
         parentNode: {attributes: ['id', 'my-parent']},
-        nodeName: 'p',
+        localName: 'p',
         attributes: ['class', 'my-p'],
       });
 
@@ -273,7 +273,7 @@ describe('SEO: Font size audit', () => {
         type: 'Attributes',
       }, {
         parentNode: {attributes: ['id', 'my-parent']},
-        nodeName: 'font',
+        localName: 'font',
         attributes: ['size', '10px'],
       });
 

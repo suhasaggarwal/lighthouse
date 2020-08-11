@@ -24,7 +24,37 @@ const MAX_NODES_SOURCE_RULE_FETCHED = 50; // number of nodes to fetch the source
 
 /** @typedef {import('../../driver.js')} Driver */
 /** @typedef {LH.Artifacts.FontSize['analyzedFailingNodesData'][0]} NodeFontData */
+/** @typedef {LH.Artifacts.FontSize.DomNodeMaybeWithParent} DomNodeMaybeWithParent*/
 /** @typedef {Map<number, {fontSize: number, textLength: number}>} BackendIdsToFontData */
+
+/**
+ * @param {LH.Artifacts.FontSize.DomNodeMaybeWithParent=} node
+ * @returns {node is LH.Artifacts.FontSize.DomNodeWithParent}
+ */
+function nodeInBody(node) {
+  if (!node) {
+    return false;
+  }
+  if (node.nodeName === 'BODY') {
+    return true;
+  }
+  return nodeInBody(node.parentNode);
+}
+
+/**
+ * Get list of all nodes from the document body.
+ *
+ * @param {Driver} driver
+ * @returns {Promise<LH.Artifacts.FontSize.DomNodeWithParent[]>}
+ */
+async function getAllNodesFromBody(driver) {
+  const nodes = /** @type {DomNodeMaybeWithParent[]} */ (await driver.getNodesInDocument());
+  /** @type {Map<number|undefined, LH.Artifacts.FontSize.DomNodeMaybeWithParent>} */
+  const nodeMap = new Map();
+  nodes.forEach(node => nodeMap.set(node.nodeId, node));
+  nodes.forEach(node => (node.parentNode = nodeMap.get(node.parentId)));
+  return nodes.filter(nodeInBody);
+}
 
 /**
  * @param {LH.Crdp.CSS.CSSStyle} [style]
@@ -157,12 +187,12 @@ function getTextLength(text) {
 
 /**
  * @param {Driver} driver
- * @param {number} nodeId text node
+ * @param {LH.Crdp.DOM.Node} node text node
  * @returns {Promise<NodeFontData['cssRule']|undefined>}
  */
-async function fetchSourceRule(driver, nodeId) {
+async function fetchSourceRule(driver, node) {
   const matchedRules = await driver.sendCommand('CSS.getMatchedStylesForNode', {
-    nodeId,
+    nodeId: node.nodeId,
   });
   const sourceRule = getEffectiveFontRule(matchedRules);
   if (!sourceRule) return undefined;
@@ -184,22 +214,12 @@ class FontSize extends Gatherer {
    * @param {Array<NodeFontData>} failingNodes
    */
   static async fetchFailingNodeSourceRules(driver, failingNodes) {
-    const nodesToAnalyze = failingNodes
+    const analysisPromises = failingNodes
       .sort((a, b) => b.textLength - a.textLength)
-      .slice(0, MAX_NODES_SOURCE_RULE_FETCHED);
-
-    // DOM.getDocument is necessary for pushNodesByBackendIdsToFrontend to properly retrieve nodeIds if the `DOM` domain was enabled before this gatherer, invoke it to be safe.
-    await driver.sendCommand('DOM.getDocument', {depth: -1, pierce: true});
-
-    const {nodeIds} = await driver.sendCommand('DOM.pushNodesByBackendIdsToFrontend', {
-      backendNodeIds: nodesToAnalyze.map(node => node.parentNode.backendNodeId),
-    });
-
-    const analysisPromises = nodesToAnalyze
-      .map(async (failingNode, i) => {
-        failingNode.nodeId = nodeIds[i];
+      .slice(0, MAX_NODES_SOURCE_RULE_FETCHED)
+      .map(async failingNode => {
         try {
-          const cssRule = await fetchSourceRule(driver, nodeIds[i]);
+          const cssRule = await fetchSourceRule(driver, failingNode.node);
           failingNode.cssRule = cssRule;
         } catch (err) {
           // The node was deleted. We don't need to distinguish between lack-of-rule
@@ -220,35 +240,25 @@ class FontSize extends Gatherer {
   }
 
   /**
-   * Returns the TextNodes in a DOM Snapshot.
-   * Every entry is associated with a TextNode in the layout tree (not display: none).
+   * Maps backendNodeId of TextNodes to {fontSize, textLength}.
+   *
    * @param {LH.Crdp.DOMSnapshot.CaptureSnapshotResponse} snapshot
+   * @return {BackendIdsToFontData}
    */
-  getTextNodesInLayoutFromSnapshot(snapshot) {
+  calculateBackendIdsToFontData(snapshot) {
     const strings = snapshot.strings;
-    /** @param {number} index */
-    const getString = (index) => strings[index];
-    /** @param {number} index */
-    const getFloat = (index) => parseFloat(strings[index]);
 
-    const textNodesData = [];
+    /** @type {BackendIdsToFontData} */
+    const backendIdsToFontData = new Map();
+
     for (let j = 0; j < snapshot.documents.length; j++) {
       // `doc` is a flattened property list describing all the Nodes in a document, with all string
       // values deduped in the `strings` array.
       const doc = snapshot.documents[j];
 
-      if (!doc.nodes.backendNodeId || !doc.nodes.parentIndex ||
-          !doc.nodes.attributes || !doc.nodes.nodeName) {
+      if (!doc.nodes.backendNodeId) {
         throw new Error('Unexpected response from DOMSnapshot.captureSnapshot.');
       }
-      const nodes = /** @type {Required<typeof doc['nodes']>} */ (doc.nodes);
-
-      /** @param {number} parentIndex */
-      const getParentData = (parentIndex) => ({
-        backendNodeId: nodes.backendNodeId[parentIndex],
-        attributes: nodes.attributes[parentIndex].map(getString),
-        nodeName: getString(nodes.nodeName[parentIndex]),
-      });
 
       for (const layoutIndex of doc.textBoxes.layoutIndex) {
         const text = strings[doc.layout.text[layoutIndex]];
@@ -257,50 +267,45 @@ class FontSize extends Gatherer {
         const nodeIndex = doc.layout.nodeIndex[layoutIndex];
         const styles = doc.layout.styles[layoutIndex];
         const [fontSizeStringId] = styles;
-        const fontSize = getFloat(fontSizeStringId);
 
-        const parentIndex = nodes.parentIndex[nodeIndex];
-        const grandParentIndex = nodes.parentIndex[parentIndex];
-        const parentNode = getParentData(parentIndex);
-        const grandParentNode =
-          grandParentIndex !== undefined ? getParentData(grandParentIndex) : undefined;
-
-        textNodesData.push({
-          nodeIndex,
-          backendNodeId: nodes.backendNodeId[nodeIndex],
+        const fontSize = parseFloat(strings[fontSizeStringId]);
+        backendIdsToFontData.set(doc.nodes.backendNodeId[nodeIndex], {
           fontSize,
           textLength: getTextLength(text),
-          parentNode: {
-            ...parentNode,
-            parentNode: grandParentNode,
-          },
         });
       }
     }
 
-    return textNodesData;
+    return backendIdsToFontData;
   }
 
   /**
-   * Get all the failing text nodes that don't meet the legible text threshold.
-   * @param {LH.Crdp.DOMSnapshot.CaptureSnapshotResponse} snapshot
+   * The only connection between a snapshot Node and an actual Protocol Node is backendId,
+   * so that is used to join the two data structures. DOMSnapshot.captureSnapshot doesn't
+   * give the entire Node object, so DOM.getFlattenedDocument is used.
+   * @param {BackendIdsToFontData} backendIdsToFontData
+   * @param {LH.Artifacts.FontSize.DomNodeWithParent[]} crdpNodes
    */
-  findFailingNodes(snapshot) {
+  findFailingNodes(backendIdsToFontData, crdpNodes) {
     /** @type {NodeFontData[]} */
     const failingNodes = [];
     let totalTextLength = 0;
     let failingTextLength = 0;
 
-    for (const textNodeData of this.getTextNodesInLayoutFromSnapshot(snapshot)) {
-      totalTextLength += textNodeData.textLength;
-      if (textNodeData.fontSize < MINIMAL_LEGIBLE_FONT_SIZE_PX) {
+    for (const crdpNode of crdpNodes) {
+      const partialFontData = backendIdsToFontData.get(crdpNode.backendNodeId);
+      if (!partialFontData) continue;
+      // `crdpNode` is a non-empty TextNode that is in the layout tree (not display: none).
+
+      const {fontSize, textLength} = partialFontData;
+      totalTextLength += textLength;
+      if (fontSize < MINIMAL_LEGIBLE_FONT_SIZE_PX) {
         // Once a bad TextNode is identified, its parent Node is needed.
-        failingTextLength += textNodeData.textLength;
+        failingTextLength += textLength;
         failingNodes.push({
-          nodeId: 0, // Set later in fetchFailingNodeSourceRules.
-          parentNode: textNodeData.parentNode,
-          textLength: textNodeData.textLength,
-          fontSize: textNodeData.fontSize,
+          node: crdpNode.parentNode,
+          textLength,
+          fontSize,
         });
       }
     }
@@ -326,15 +331,20 @@ class FontSize extends Gatherer {
     ]);
 
     // Get the computed font-size style of every node.
-    const snapshot = await passContext.driver.sendCommand('DOMSnapshot.captureSnapshot', {
+    const snapshotPromise = passContext.driver.sendCommand('DOMSnapshot.captureSnapshot', {
       computedStyles: ['font-size'],
     });
+    const allNodesPromise = getAllNodesFromBody(passContext.driver);
+    const [snapshot, crdpNodes] = await Promise.all([snapshotPromise, allNodesPromise]);
+    const backendIdsToFontData = this.calculateBackendIdsToFontData(snapshot);
+    // `backendIdsToFontData` will include all non-empty TextNodes.
+    // `crdpNodes` will only contain the body node and its descendants.
 
     const {
       totalTextLength,
       failingTextLength,
       failingNodes,
-    } = this.findFailingNodes(snapshot);
+    } = this.findFailingNodes(backendIdsToFontData, crdpNodes);
     const {
       analyzedFailingNodesData,
       analyzedFailingTextLength,

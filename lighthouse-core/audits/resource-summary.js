@@ -54,7 +54,6 @@ class ResourceSummary extends Audit {
       {key: 'transferSize', itemType: 'bytes', text: str_(i18n.UIStrings.columnTransferSize)},
     ];
 
-
     /** @type {Record<LH.Budget.ResourceType,string>} */
     const strMappings = {
       'total': str_(i18n.UIStrings.totalResourceType),

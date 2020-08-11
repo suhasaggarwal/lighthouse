@@ -27,6 +27,9 @@
 
 /** @typedef {import('./dom')} DOM */
 
+const VIEWER_ORIGIN = 'http://localhost:8000';
+const TREEMAP_URL = `${VIEWER_ORIGIN}/treemap/`;
+
 /**
  * @param {HTMLTableElement} tableEl
  * @return {Array<HTMLElement>}
@@ -140,6 +143,7 @@ class ReportUIFeatures {
       toggleInputEl.checked = true;
     }
 
+    this._renderBundleVizLinks();
     // Fill in all i18n data.
     for (const node of this._dom.findAll('[data-i18n]', this._dom.document())) {
       // These strings are guaranteed to (at least) have a default English string in Util.UIStrings,
@@ -273,7 +277,7 @@ class ReportUIFeatures {
       this._dom.find('.lh-3p-filter-count', filterTemplate).textContent =
           `${thirdPartyRows.length}`;
       this._dom.find('.lh-3p-ui-string', filterTemplate).textContent =
-          Util.i18n.strings.thirdPartyResourcesLabel;
+        Util.i18n.strings.thirdPartyResourcesLabel;
 
       const allThirdParty = thirdPartyRows.length === rowEls.length;
       const allFirstParty = !thirdPartyRows.length;
@@ -454,8 +458,7 @@ class ReportUIFeatures {
         break;
       }
       case 'open-viewer': {
-        const viewerPath = '/lighthouse/viewer/';
-        ReportUIFeatures.openTabAndSendJsonReport(this.json, viewerPath);
+        ReportUIFeatures.openTabAndSendJsonReportToViewer(this.json);
         break;
       }
       case 'save-gist': {
@@ -464,6 +467,20 @@ class ReportUIFeatures {
       }
       case 'toggle-dark': {
         this._toggleDarkTheme();
+        break;
+      }
+      case 'open-treemap': {
+        // WIP test code :)
+        const treemapData = /** @type {LH.Audit.Details.DebugData} */ (
+          this.json.audits['treemap-data'].details);
+
+        const windowName = `viz-${this.json.requestedUrl}`;
+        const data = {
+          documentUrl: this.json.requestedUrl,
+          id: 'javascript',
+          rootNodes: treemapData.rootNodes,
+        };
+        ReportUIFeatures.openTabAndSendData(data, TREEMAP_URL, windowName);
         break;
       }
     }
@@ -489,33 +506,43 @@ class ReportUIFeatures {
   /**
    * Opens a new tab to the online viewer and sends the local page's JSON results
    * to the online viewer using postMessage.
-   * @param {LH.Result} reportJson
-   * @param {string} viewerPath
+   * @param {LH.Result} json
    * @protected
    */
-  static openTabAndSendJsonReport(reportJson, viewerPath) {
-    const VIEWER_ORIGIN = 'https://googlechrome.github.io';
+  static openTabAndSendJsonReportToViewer(json) {
+    // The popup's window.name is keyed by version+url+fetchTime, so we reuse/select tabs correctly
+    // @ts-ignore - If this is a v2 LHR, use old `generatedTime`.
+    const fallbackFetchTime = /** @type {string} */ (json.generatedTime);
+    const fetchTime = json.fetchTime || fallbackFetchTime;
+    const windowName = `${json.lighthouseVersion}-${json.requestedUrl}-${fetchTime}`;
+    ReportUIFeatures.openTabAndSendData(json, `${VIEWER_ORIGIN}/lighthouse/viewer/`, windowName);
+  }
+
+  /**
+   * Opens a new tab to an external page and sends data using postMessage.
+   * @param {Object} data
+   * @param {string} path
+   * @param {string} windowName
+   * @protected
+   */
+  static openTabAndSendData(data, path, windowName) {
+    const origin = new URL(path).origin;
     // Chrome doesn't allow us to immediately postMessage to a popup right
     // after it's created. Normally, we could also listen for the popup window's
     // load event, however it is cross-domain and won't fire. Instead, listen
     // for a message from the target app saying "I'm open".
-    const json = reportJson;
     window.addEventListener('message', function msgHandler(messageEvent) {
-      if (messageEvent.origin !== VIEWER_ORIGIN) {
+      if (messageEvent.origin !== origin) {
         return;
       }
       if (popup && messageEvent.data.opened) {
-        popup.postMessage({lhresults: json}, VIEWER_ORIGIN);
+        popup.postMessage(data, origin);
         window.removeEventListener('message', msgHandler);
       }
     });
 
     // The popup's window.name is keyed by version+url+fetchTime, so we reuse/select tabs correctly
-    // @ts-expect-error - If this is a v2 LHR, use old `generatedTime`.
-    const fallbackFetchTime = /** @type {string} */ (json.generatedTime);
-    const fetchTime = json.fetchTime || fallbackFetchTime;
-    const windowName = `${json.lighthouseVersion}-${json.requestedUrl}-${fetchTime}`;
-    const popup = window.open(`${VIEWER_ORIGIN}${viewerPath}`, windowName);
+    const popup = window.open(path, windowName);
   }
 
   /**
@@ -644,6 +671,33 @@ class ReportUIFeatures {
     this.highlightEl.style.transform = `translate(${offset}px)`;
     this.stickyHeaderEl.classList.toggle('lh-sticky-header--visible', showStickyHeader);
   }
+
+  _renderBundleVizLinks() {
+    if (!this.json.audits['treemap-data']) return;
+    if (!this.json.audits['treemap-data'].details) return;
+    const treemapData = /** @type {LH.Audit.Details.DebugData} */ (
+      this.json.audits['treemap-data'].details);
+
+    for (const urlEl of this._dom.findAll('.lh-text__url', this._document)) {
+      const anchorEl = /** @type {HTMLAnchorElement=} */ (urlEl.querySelector('a'));
+      if (!anchorEl) continue;
+      const rootNode = treemapData.rootNodes[anchorEl.href];
+      if (!rootNode) continue;
+
+      const externalButton = this._dom.createElement('span', 'lh-external-viz');
+      externalButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M10 18h5v-6h-5v6zm-6 0h5V5H4v13zm12 0h5v-6h-5v6zM10 5v6h11V5H10z"/><path d="M0 0h24v24H0z" fill="none"/></svg>`;
+      externalButton.addEventListener('click', () => {
+        const windowName = `viz-${this.json.requestedUrl}`;
+        const data = {
+          documentUrl: this.json.requestedUrl,
+          id: anchorEl.href,
+          rootNodes: treemapData.rootNodes,
+        };
+        ReportUIFeatures.openTabAndSendData(data, TREEMAP_URL, windowName);
+      });
+      urlEl.insertBefore(externalButton, urlEl.lastElementChild);
+    }
+  }
 }
 
 class DropDown {
@@ -661,7 +715,6 @@ class DropDown {
     this.onDocumentKeyDown = this.onDocumentKeyDown.bind(this);
     this.onToggleClick = this.onToggleClick.bind(this);
     this.onToggleKeydown = this.onToggleKeydown.bind(this);
-    this.onMenuFocusOut = this.onMenuFocusOut.bind(this);
     this.onMenuKeydown = this.onMenuKeydown.bind(this);
 
     this._getNextMenuItem = this._getNextMenuItem.bind(this);
@@ -689,7 +742,6 @@ class DropDown {
       // Refocus on the tools button if the drop down last had focus
       this._toggleEl.focus();
     }
-    this._menuEl.removeEventListener('focusout', this.onMenuFocusOut);
     this._dom.document().removeEventListener('keydown', this.onDocumentKeyDown);
   }
 
@@ -709,7 +761,6 @@ class DropDown {
 
     this._toggleEl.classList.add('active');
     this._toggleEl.setAttribute('aria-expanded', 'true');
-    this._menuEl.addEventListener('focusout', this.onMenuFocusOut);
     this._dom.document().addEventListener('keydown', this.onDocumentKeyDown);
   }
 

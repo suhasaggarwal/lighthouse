@@ -15,6 +15,7 @@ const config = {
   extends: 'lighthouse:default',
   audits: [
     'full-page-screenshot',
+    'treemap-data',
   ],
   passes: [{
     passName: 'defaultPass',

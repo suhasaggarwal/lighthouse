@@ -36,15 +36,13 @@ function getUniqueFailingRules(fontSizeArtifact) {
   /** @type {Map<string, FailingNodeData>} */
   const failingRules = new Map();
 
-  fontSizeArtifact.forEach((failingNodeData) => {
-    const {nodeId, cssRule, fontSize, textLength, parentNode} = failingNodeData;
-    const artifactId = getFontArtifactId(cssRule, nodeId);
+  fontSizeArtifact.forEach(({cssRule, fontSize, textLength, node}) => {
+    const artifactId = getFontArtifactId(cssRule, node);
     const failingRule = failingRules.get(artifactId);
 
     if (!failingRule) {
       failingRules.set(artifactId, {
-        nodeId,
-        parentNode,
+        node,
         cssRule,
         fontSize,
         textLength,
@@ -78,11 +76,11 @@ function getAttributeMap(attributes = []) {
 
 /**
  * TODO: return unique selector, like axe-core does, instead of just id/class/name of a single node
- * @param {FailingNodeData['parentNode']} parentNode
+ * @param {FailingNodeData['node']} node
  * @returns {string}
  */
-function getSelector(parentNode) {
-  const attributeMap = getAttributeMap(parentNode.attributes);
+function getSelector(node) {
+  const attributeMap = getAttributeMap(node.attributes);
 
   if (attributeMap.has('id')) {
     return '#' + attributeMap.get('id');
@@ -93,40 +91,40 @@ function getSelector(parentNode) {
     }
   }
 
-  return parentNode.nodeName.toLowerCase();
+  return node.localName.toLowerCase();
 }
 
 /**
- * @param {FailingNodeData['parentNode']} parentNode
+ * @param {FailingNodeData['node']} node
  * @return {LH.Audit.Details.NodeValue}
  */
-function nodeToTableNode(parentNode) {
-  const attributes = parentNode.attributes || [];
+function nodeToTableNode(node) {
+  const attributes = node.attributes || [];
   const attributesString = attributes.map((value, idx) =>
     (idx % 2 === 0) ? ` ${value}` : `="${value}"`
   ).join('');
 
   return {
     type: 'node',
-    selector: parentNode.parentNode ? getSelector(parentNode.parentNode) : '',
-    snippet: `<${parentNode.nodeName.toLowerCase()}${attributesString}>`,
+    selector: node.parentNode ? getSelector(node.parentNode) : '',
+    snippet: `<${node.localName}${attributesString}>`,
   };
 }
 
 /**
  * @param {string} baseURL
  * @param {FailingNodeData['cssRule']} styleDeclaration
- * @param {FailingNodeData['parentNode']} parentNode
+ * @param {FailingNodeData['node']} node
  * @returns {{source: LH.Audit.Details.UrlValue | LH.Audit.Details.SourceLocationValue | LH.Audit.Details.CodeValue, selector: string | LH.Audit.Details.NodeValue}}
  */
-function findStyleRuleSource(baseURL, styleDeclaration, parentNode) {
+function findStyleRuleSource(baseURL, styleDeclaration, node) {
   if (!styleDeclaration ||
     styleDeclaration.type === 'Attributes' ||
     styleDeclaration.type === 'Inline'
   ) {
     return {
       source: {type: 'url', value: baseURL},
-      selector: nodeToTableNode(parentNode),
+      selector: nodeToTableNode(node),
     };
   }
 
@@ -200,16 +198,16 @@ function findStyleRuleSource(baseURL, styleDeclaration, parentNode) {
 
 /**
  * @param {FailingNodeData['cssRule']} styleDeclaration
- * @param {number} textNodeId
+ * @param {FailingNodeData['node']} node
  * @return {string}
  */
-function getFontArtifactId(styleDeclaration, textNodeId) {
+function getFontArtifactId(styleDeclaration, node) {
   if (styleDeclaration && styleDeclaration.type === 'Regular') {
     const startLine = styleDeclaration.range ? styleDeclaration.range.startLine : 0;
     const startColumn = styleDeclaration.range ? styleDeclaration.range.startColumn : 0;
     return `${styleDeclaration.styleSheetId}@${startLine}:${startColumn}`;
   } else {
-    return `node_${textNodeId}`;
+    return `node_${node.nodeId}`;
   }
 }
 
@@ -276,9 +274,9 @@ class FontSize extends Audit {
     ];
 
     const tableData = failingRules.sort((a, b) => b.textLength - a.textLength)
-      .map(({cssRule, textLength, fontSize, parentNode}) => {
+      .map(({cssRule, textLength, fontSize, node}) => {
         const percentageOfAffectedText = textLength / totalTextLength * 100;
-        const origin = findStyleRuleSource(pageUrl, cssRule, parentNode);
+        const origin = findStyleRuleSource(pageUrl, cssRule, node);
 
         return {
           source: origin.source,

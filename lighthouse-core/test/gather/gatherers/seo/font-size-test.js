@@ -7,53 +7,48 @@
 
 /* eslint-env jest */
 
-const assert = require('assert');
 const FontSizeGather = require('../../../../gather/gatherers/seo/font-size.js');
 let fontSizeGather;
 
 const TEXT_NODE_TYPE = 3;
 const smallText = ' body sm𝐀ll text ';
 const bigText = 'body 𝐁ig text';
-const bodyNode = {
-  nodeId: 2, backendNodeId: 102,
-  nodeName: 'BODY', parentId: 0, fontSize: '10px', attributes: ['blah', '1'],
-};
+const bodyNode = {nodeId: 3, backendNodeId: 102, nodeName: 'BODY', parentId: 1, fontSize: '10px'};
 const nodes = [
-  {nodeId: 0, backendNodeId: 100, nodeName: 'HTML'},
-  {nodeId: 1, backendNodeId: 101, nodeName: 'HEAD', parentId: 0},
+  {nodeId: 1, backendNodeId: 100, nodeName: 'HTML'},
+  {nodeId: 2, backendNodeId: 101, nodeName: 'HEAD', parentId: 1},
   bodyNode,
   {
-    nodeId: 3,
+    nodeId: 4,
     backendNodeId: 103,
     nodeValue: 'head text',
     nodeType: TEXT_NODE_TYPE,
-    parentId: 1,
+    parentId: 2,
   },
   {
-    nodeId: 4,
+    nodeId: 5,
     backendNodeId: 104,
     nodeValue: smallText,
     nodeType: TEXT_NODE_TYPE,
-    parentId: 2,
+    parentId: 3,
   },
-  {nodeId: 5, backendNodeId: 105, nodeName: 'H1', parentId: 2},
+  {nodeId: 6, backendNodeId: 105, nodeName: 'H1', parentId: 3},
   {
-    nodeId: 6,
+    nodeId: 7,
     backendNodeId: 106,
     nodeValue: bigText,
     nodeType: TEXT_NODE_TYPE,
-    parentId: 5,
+    parentId: 6,
   },
-  {nodeId: 7, backendNodeId: 107, nodeName: 'SCRIPT', parentId: 2},
+  {nodeId: 8, backendNodeId: 107, nodeName: 'SCRIPT', parentId: 3},
   {
-    nodeId: 8,
+    nodeId: 9,
     backendNodeId: 108,
     nodeValue: 'script text',
     nodeType: TEXT_NODE_TYPE,
-    parentId: 7,
+    parentId: 8,
   },
 ];
-nodes.forEach((node, i) => assert(node.nodeId === i));
 
 const stringsMap = {};
 const strings = [];
@@ -67,45 +62,25 @@ const getOrCreateStringIndex = value => {
   strings.push(value);
   return index;
 };
-
-const nodeNamesNotInLayout = ['HEAD', 'HTML', 'SCRIPT'];
-const nodeIndicesInLayout = nodes.map((node, i) => {
-  if (nodeNamesNotInLayout.includes(node.nodeName)) return null;
-
-  if (node.nodeType === TEXT_NODE_TYPE) {
-    const parentNode = nodes[node.parentId];
-    if (parentNode && nodeNamesNotInLayout.includes(parentNode.nodeName)) {
-      return null;
-    }
-  }
-
-  return i;
-}).filter(id => id !== null);
-const nodesInLayout = nodeIndicesInLayout.map(index => nodes[index]);
-
 const snapshot = {
   documents: [
     {
       nodes: {
         backendNodeId: nodes.map(node => node.backendNodeId),
-        parentIndex: nodes.map(node => node.parentId),
-        attributes: nodes.map(node =>
-          node.attributes ? node.attributes.map(getOrCreateStringIndex) : []),
-        nodeName: nodes.map(node => getOrCreateStringIndex(node.nodeName)),
       },
       layout: {
-        nodeIndex: nodeIndicesInLayout,
-        styles: nodesInLayout.map(node => ([
+        nodeIndex: nodes.map((_, i) => i),
+        styles: nodes.map(node => [
           getOrCreateStringIndex(`${node.nodeValue === smallText ? 10 : 20}px`),
-        ])),
-        text: nodesInLayout.map(node => getOrCreateStringIndex(node.nodeValue)),
+        ]),
+        text: nodes.map(node => getOrCreateStringIndex(node.nodeValue)),
       },
       textBoxes: {
-        layoutIndex: nodeIndicesInLayout.map((_, i) => i).filter(i => {
-          const node = nodes[nodeIndicesInLayout[i]];
+        layoutIndex: nodes.map((_, i) => i).filter(i => {
+          const node = nodes[i];
           if (node.nodeType !== TEXT_NODE_TYPE) return false;
 
-          const parentNode = nodes[node.parentId];
+          const parentNode = nodes.find(n => n.nodeId === node.parentId);
           return parentNode && parentNode.nodeName !== 'SCRIPT';
         }),
       },
@@ -124,7 +99,7 @@ describe('Font size gatherer', () => {
     const driver = {
       on() {},
       off() {},
-      async sendCommand(command, args) {
+      async sendCommand(command) {
         if (command === 'CSS.getMatchedStylesForNode') {
           return {
             inlineStyle: null,
@@ -134,13 +109,10 @@ describe('Font size gatherer', () => {
           };
         } else if (command === 'DOMSnapshot.captureSnapshot') {
           return snapshot;
-        } else if (command === 'DOM.pushNodesByBackendIdsToFrontend') {
-          return {
-            nodeIds: args.backendNodeIds.map(backendNodeId => {
-              return nodes.find(node => node.backendNodeId === backendNodeId).nodeId;
-            }),
-          };
         }
+      },
+      async getNodesInDocument() {
+        return nodes;
       },
     };
 
@@ -157,19 +129,8 @@ describe('Font size gatherer', () => {
       totalTextLength: expectedTotalTextLength,
       analyzedFailingNodesData: [
         {
-          // nodeId of the failing body TextNode
-          nodeId: 2,
           fontSize: 10,
-          parentNode: {
-            backendNodeId: 102,
-            attributes: bodyNode.attributes,
-            nodeName: bodyNode.nodeName,
-            parentNode: {
-              backendNodeId: 100,
-              attributes: [],
-              nodeName: 'HTML',
-            },
-          },
+          node: bodyNode,
           textLength: expectedFailingTextLength,
         },
       ],

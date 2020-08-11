@@ -1205,6 +1205,19 @@ class Driver {
   }
 
   /**
+   * Returns the flattened list of all DOM nodes within the document.
+   * @param {boolean=} pierce Whether to pierce through shadow trees and iframes.
+   *     True by default.
+   * @return {Promise<Array<LH.Crdp.DOM.Node>>} The found nodes, or [], resolved in a promise
+   */
+  async getNodesInDocument(pierce = true) {
+    const flattenedDocument = await this.sendCommand('DOM.getFlattenedDocument',
+        {depth: -1, pierce});
+
+    return flattenedDocument.nodes ? flattenedDocument.nodes : [];
+  }
+
+  /**
    * Resolves a backend node ID (from a trace event, protocol, etc) to the object ID for use with
    * `Runtime.callFunctionOn`. `undefined` means the node could not be found.
    *
