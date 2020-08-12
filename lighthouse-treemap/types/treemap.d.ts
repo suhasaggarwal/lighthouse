@@ -1,4 +1,6 @@
-import _Util = require('../app/src/utils.js');
+import _Util = require('../app/src/util.js');
+import {RootNode as _RootNode} from '../../lighthouse-core/audits/treemap-data';
+import {Node as _Node} from '../../lighthouse-core/audits/treemap-data';
 import '../../types/lhr';
 
 declare global {
@@ -13,8 +15,17 @@ declare global {
       partitionBy: string;
       highlightNodeIds?: string[];
     }
+
+    type RootNode = _RootNode;
+    type Node2 = _Node;
   }
 
+  interface TreeMap {
+    new (data: any, styles: Record<string, any>): TreeMap;
+    render(el: HTMLElement): void;
+  }
+
+  var webtreemap: {TreeMap: TreeMap};
   var Util: typeof _Util;
 
   interface Window {

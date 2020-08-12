@@ -5,16 +5,13 @@
  */
 'use strict';
 
-/** @typedef {import('../../../lighthouse-core/audits/treemap-data.js').RootNode} RootNode */
-/** @typedef {import('../../../lighthouse-core/audits/treemap-data.js').Node} Node2 */
-
 /** @type {TreemapViewer} */
 let treemapViewer;
 
 /**
  *
- * @param {Node2} node
- * @param {(node: Node2, fullId: string) => void} fn
+ * @param {Treemap.Node2} node
+ * @param {(node: Treemap.Node2, fullId: string) => void} fn
  */
 function dfs(node, fn, fullId = '') {
   fullId = fullId ? `${fullId}/${node.id}` : node.id;
@@ -45,7 +42,7 @@ class TreemapViewer {
     const treemapData = /** @type {LH.Audit.Details.DebugData} */ (
       options.lhr.audits['treemap-data'].details);
     if (!treemapData || !treemapData.rootNodes) throw new Error('missing treemap-data');
-    /** @type {RootNode[]} */
+    /** @type {Treemap.RootNode[]} */
     const rootNodes = treemapData.rootNodes;
 
     for (const rootNode of rootNodes) {
@@ -233,7 +230,7 @@ class TreemapViewer {
   }
 
   /**
-   * @param {RootNode[]} rootNodes
+   * @param {Treemap.RootNode[]} rootNodes
    */
   createTable(rootNodes) {
     const gridPanelEl = Util.find('.panel--datagrid');
@@ -351,7 +348,7 @@ function createHeader(options) {
 }
 
 /**
- * @param {RootNode[]} rootNodes
+ * @param {Treemap.RootNode[]} rootNodes
  * @param {string=} currentViewId
  */
 function createViewModes(rootNodes, currentViewId) {
@@ -466,7 +463,6 @@ function createViewModes(rootNodes, currentViewId) {
     });
   }
 }
-
 
 /**
  * @param {Treemap.Options} options
