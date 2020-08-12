@@ -5,7 +5,7 @@
  */
 'use strict';
 
-const thirdPartyWeb = require('third-party-web/httparchive-nostats-subset');
+const thirdPartyWeb = require('../lib/third-party-web.js');
 const Audit = require('./audit.js');
 const i18n = require('../lib/i18n/i18n.js');
 
@@ -25,23 +25,6 @@ const UIStrings = {
 const str_ = i18n.createMessageInstanceIdFn(__filename, UIStrings);
 
 const LARGE_JS_BYTE_THRESHOLD = 500 * 1024;
-
-/**
- * Returns true if the script URL is either:
- * (1) a known third-party script or
- * (2) the same as the (redirected) requested Lighthouse URL
- * @param {string} url
- * @param {string} finalUrl
- */
-function isFirstParty(url, finalUrl) {
-  try {
-    const entity = thirdPartyWeb.getEntity(url);
-    if (!entity) return true;
-    return entity === thirdPartyWeb.getEntity(finalUrl);
-  } catch (_) {
-    return false;
-  }
-}
 
 class ValidSourceMaps extends Audit {
   /**
@@ -67,16 +50,16 @@ class ValidSourceMaps extends Audit {
     if (scriptElement.content === null) return false;
 
     const isLargeJS = scriptElement.content.length >= LARGE_JS_BYTE_THRESHOLD;
-    const isFirstPartyJS = scriptElement.src ? isFirstParty(scriptElement.src, finalURL) : false;
+    const isFirstPartyJS = scriptElement.src ?
+      thirdPartyWeb.isFirstParty(scriptElement.src, thirdPartyWeb.getEntity(finalURL)) : false;
 
     return isLargeJS && isFirstPartyJS;
   }
 
   /**
    * @param {LH.Artifacts} artifacts
-   * @param {LH.Audit.Context} _
    */
-  static async audit(artifacts, _) {
+  static async audit(artifacts) {
     const {SourceMaps} = artifacts;
 
     /** @type {Set<string>} */
@@ -84,28 +67,28 @@ class ValidSourceMaps extends Audit {
 
     let missingMapsForLargeFirstPartyFile = false;
     const results = [];
-    for (const ScriptElement of artifacts.ScriptElements) {
-      if (!ScriptElement.src) continue; // TODO: inline scripts, how do they work?
+    for (const scriptElement of artifacts.ScriptElements) {
+      if (!scriptElement.src) continue; // TODO: inline scripts, how do they work?
 
-      const SourceMap = SourceMaps.find(m => m.scriptUrl === ScriptElement.src);
+      const sourceMap = SourceMaps.find(m => m.scriptUrl === scriptElement.src);
       const errors = [];
-      const isLargeFirstParty = this.isLargeFirstPartyJS(ScriptElement, artifacts.URL.finalUrl);
+      const isLargeFirstParty = this.isLargeFirstPartyJS(scriptElement, artifacts.URL.finalUrl);
 
-      if (isLargeFirstParty && (!SourceMap || !SourceMap.map)) {
+      if (isLargeFirstParty && (!sourceMap || !sourceMap.map)) {
         missingMapsForLargeFirstPartyFile = true;
-        isMissingMapForLargeFirstPartyScriptUrl.add(ScriptElement.src);
+        isMissingMapForLargeFirstPartyScriptUrl.add(scriptElement.src);
         errors.push('Large JavaScript file is missing a source map');
       }
 
-      if (SourceMap && !SourceMap.map) {
-        errors.push(SourceMap.errorMessage);
+      if (sourceMap && !sourceMap.map) {
+        errors.push(sourceMap.errorMessage);
       }
 
       // Sources content errors.
-      if (SourceMap && SourceMap.map) {
-        const sourcesContent = SourceMap.map.sourcesContent || [];
+      if (sourceMap && sourceMap.map) {
+        const sourcesContent = sourceMap.map.sourcesContent || [];
         let missingSourcesContentCount = 0;
-        for (let i = 0; i < SourceMap.map.sources.length; i++) {
+        for (let i = 0; i < sourceMap.map.sources.length; i++) {
           if (sourcesContent.length < i || !sourcesContent[i]) missingSourcesContentCount += 1;
         }
         if (missingSourcesContentCount > 0) {
@@ -113,10 +96,10 @@ class ValidSourceMaps extends Audit {
         }
       }
 
-      if (SourceMap || errors.length) {
+      if (sourceMap || errors.length) {
         results.push({
-          scriptUrl: ScriptElement.src,
-          sourceMapUrl: SourceMap && SourceMap.sourceMapUrl,
+          scriptUrl: scriptElement.src,
+          sourceMapUrl: sourceMap && sourceMap.sourceMapUrl,
           errors: errors.length ? [errors[0]] : errors,
         });
       }
@@ -142,7 +125,7 @@ class ValidSourceMaps extends Audit {
       if (missingMapA && !missingMapB) return -1;
       if (!missingMapA && missingMapB) return 1;
 
-      // Then sort by number of errors.
+      // Then sort by whether one has errors and the other doesn't.
       if (a.errors.length && !b.errors.length) return -1;
       if (!a.errors.length && b.errors.length) return 1;
 
