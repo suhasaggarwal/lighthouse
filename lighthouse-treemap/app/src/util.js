@@ -10,6 +10,15 @@ const MB = KB * KB;
 
 class Util {
   /**
+   * @param {string} string
+   * @param {number} length
+   */
+  static elide(string, length) {
+    if (string.length <= length) return string;
+    return string.slice(0, length) + '…';
+  }
+
+  /**
    * Guaranteed context.querySelector. Always returns an element or throws if
    * nothing matches query.
    * @param {string} query
@@ -30,7 +39,7 @@ class Util {
    */
   static formatBytes(bytes) {
     if (bytes >= MB) return (bytes / MB).toFixed(2) + ' MB';
-    if (bytes >= KB) return (bytes / KB).toFixed(2) + ' KB';
+    if (bytes >= KB) return (bytes / KB).toFixed(0) + ' KB';
     return bytes + ' B';
   }
 

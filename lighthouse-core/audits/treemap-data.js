@@ -16,6 +16,10 @@ const MainThreadTasks = require('../computed/main-thread-tasks.js');
 const {taskGroups} = require('../lib/tracehouse/task-groups.js');
 
 /**
+ * @typedef {Record<string, RootNode[]>} TreemapData
+ */
+
+/**
  * @typedef SourceData
  * @property {number} bytes
  * @property {number=} wastedBytes
@@ -26,7 +30,6 @@ const {taskGroups} = require('../lib/tracehouse/task-groups.js');
 /**
  * @typedef RootNode
  * @property {string} id
- * @property {string} group
  * @property {Node} node
  */
 
@@ -119,7 +122,7 @@ function prepareTreemapNodes(map, sourcesData) {
   return rootNode;
 }
 
-class TreemapData extends Audit {
+class TreemapDataAudit extends Audit {
   /**
    * @return {LH.Audit.Meta}
    */
@@ -131,6 +134,104 @@ class TreemapData extends Audit {
       description: 'Used for treemap visualization.',
       requiredArtifacts: ['traces', 'devtoolsLogs', 'SourceMaps', 'ScriptElements', 'JsUsage', 'URL'],
     };
+  }
+
+  /**
+   * @param {LH.Artifacts} artifacts
+   * @param {LH.Audit.Context} context
+   * @return {Promise<RootNode[]>}
+   */
+  static async makeJavaScriptRootNodes(artifacts, context) {
+    /** @type {RootNode[]} */
+    const rootNodes = [];
+
+    const devtoolsLog = artifacts.devtoolsLogs[Audit.DEFAULT_PASS];
+    const networkRecords = await NetworkRecords.request(devtoolsLog, context);
+    const bundles = await JsBundles.request(artifacts, context);
+    const duplication = await ModuleDuplication.request(artifacts, context);
+    const origin = new URL(artifacts.URL.finalUrl).origin;
+    // TODO: this should be a computed artifact.
+    const executionTimings = await TreemapDataAudit.getExecutionTimings(artifacts, context);
+
+    // Normalize ScriptElements so that inline scripts show up as a single entity.
+    /** @type {Array<{src: string, length: number, unusedJavascriptSummary?: import('../computed/unused-javascript-summary.js').Summary}>} */
+    const scriptData = [
+      {
+        src: artifacts.URL.finalUrl,
+        length: 0,
+      },
+    ];
+    for (const ScriptElement of artifacts.ScriptElements) {
+      if (!ScriptElement.src) {
+        scriptData[0].length += (ScriptElement.content || '').length;
+        continue;
+      }
+
+      scriptData.push({
+        src: ScriptElement.src,
+        length: (ScriptElement.content || '').length,
+        unusedJavascriptSummary: await TreemapDataAudit.getUnusedJavascriptSummary(
+          ScriptElement, bundles, networkRecords, artifacts.JsUsage, context),
+      });
+    }
+
+    for (const {src, length, unusedJavascriptSummary} of scriptData) {
+      const bundle = bundles.find(bundle => bundle.script.src === src);
+
+      let id = src;
+      // TODO: just use the full URL and defer shortening to the viewer.
+      if (id.startsWith(origin)) id = id.replace(origin, '/');
+
+      let node;
+      if (bundle && unusedJavascriptSummary && unusedJavascriptSummary.sourcesWastedBytes) {
+        /** @type {Record<string, SourceData>} */
+        const sourcesData = {};
+        for (const source of Object.keys(bundle.sizes.files)) {
+          /** @type {SourceData} */
+          const sourceData = {
+            bytes: bundle.sizes.files[source],
+          };
+
+          if (unusedJavascriptSummary && unusedJavascriptSummary.sourcesWastedBytes) {
+            sourceData.wastedBytes = unusedJavascriptSummary.sourcesWastedBytes[source];
+          }
+
+          if (duplication) {
+            const key = ModuleDuplication._normalizeSource(source);
+            sourceData.duplicate = duplication.has(key);
+          }
+
+          sourcesData[source] = sourceData;
+        }
+
+        node = prepareTreemapNodes(bundle.rawMap, sourcesData);
+      } else if (unusedJavascriptSummary) {
+        node = {
+          id,
+          bytes: unusedJavascriptSummary.totalBytes,
+          wastedBytes: unusedJavascriptSummary.wastedBytes,
+          executionTime: 0,
+        };
+      } else {
+        // ...?
+        node = {
+          id,
+          bytes: length,
+          wastedBytes: 0,
+          executionTime: 0,
+        };
+      }
+
+      const executionTiming = executionTimings.find(timing => timing.url === src);
+      node.executionTime = executionTiming ? Math.round(executionTiming.total) : 0;
+
+      rootNodes.push({
+        id,
+        node,
+      });
+    }
+
+    return rootNodes;
   }
 
   /**
@@ -168,10 +269,15 @@ class TreemapData extends Audit {
   }
 
   /**
-   * @param {LH.Artifacts.NetworkRequest[]} networkRecords
-   * @param {string} origin
+   * @param {LH.Artifacts} artifacts
+   * @param {LH.Audit.Context} context
+   * @return {Promise<RootNode>}
    */
-  static makeResourceSummaryRootNode(networkRecords, origin) {
+  static async makeResourceSummaryRootNode(artifacts, context) {
+    const devtoolsLog = artifacts.devtoolsLogs[Audit.DEFAULT_PASS];
+    const networkRecords = await NetworkRecords.request(devtoolsLog, context);
+    const origin = new URL(artifacts.URL.finalUrl).origin;
+
     const totalCount = networkRecords.length;
     let totalSize = 0;
 
@@ -204,7 +310,6 @@ class TreemapData extends Audit {
 
     return {
       id: 'Resource Summary',
-      group: 'misc',
       node: {
         id: `${totalCount} requests`,
         bytes: totalSize,
@@ -265,102 +370,16 @@ class TreemapData extends Audit {
    * @return {Promise<LH.Audit.Product>}
    */
   static async audit(artifacts, context) {
-    const bundles = await JsBundles.request(artifacts, context);
-    const duplication = await ModuleDuplication.request(artifacts, context);
-    const devtoolsLog = artifacts.devtoolsLogs[Audit.DEFAULT_PASS];
-    const networkRecords = await NetworkRecords.request(devtoolsLog, context);
-    const origin = new URL(artifacts.URL.finalUrl).origin;
-    // TODO: this should be a computed artifact.
-    const executionTimings = await TreemapData.getExecutionTimings(artifacts, context);
-
-    /** @type {RootNode[]} */
-    const rootNodes = [];
-
-    // Normalize ScriptElements so that inline scripts show up as a single entity.
-    /** @type {Array<{src: string, length: number, unusedJavascriptSummary?: import('../computed/unused-javascript-summary.js').Summary}>} */
-    const scriptData = [
-      {
-        src: artifacts.URL.finalUrl,
-        length: 0,
-      },
-    ];
-    for (const ScriptElement of artifacts.ScriptElements) {
-      if (!ScriptElement.src) {
-        scriptData[0].length += (ScriptElement.content || '').length;
-        continue;
-      }
-
-      scriptData.push({
-        src: ScriptElement.src,
-        length: (ScriptElement.content || '').length,
-        unusedJavascriptSummary: await TreemapData.getUnusedJavascriptSummary(
-          ScriptElement, bundles, networkRecords, artifacts.JsUsage, context),
-      });
-    }
-
-    for (const {src, length, unusedJavascriptSummary} of scriptData) {
-      const bundle = bundles.find(bundle => bundle.script.src === src);
-
-      let id = src;
-      // TODO: just use the full URL and defer shortening to the viewer.
-      if (id.startsWith(origin)) id = id.replace(origin, '/');
-
-      let node;
-      if (bundle && unusedJavascriptSummary && unusedJavascriptSummary.sourcesWastedBytes) {
-        /** @type {Record<string, SourceData>} */
-        const sourcesData = {};
-        for (const source of Object.keys(bundle.sizes.files)) {
-          /** @type {SourceData} */
-          const sourceData = {
-            bytes: bundle.sizes.files[source],
-          };
-
-          if (unusedJavascriptSummary && unusedJavascriptSummary.sourcesWastedBytes) {
-            sourceData.wastedBytes = unusedJavascriptSummary.sourcesWastedBytes[source];
-          }
-
-          if (duplication) {
-            const key = ModuleDuplication._normalizeSource(source);
-            sourceData.duplicate = duplication.has(key);
-          }
-
-          sourcesData[source] = sourceData;
-        }
-
-        node = prepareTreemapNodes(bundle.rawMap, sourcesData);
-      } else if (unusedJavascriptSummary) {
-        node = {
-          id,
-          bytes: unusedJavascriptSummary.totalBytes,
-          wastedBytes: unusedJavascriptSummary.wastedBytes,
-          executionTime: 0,
-        };
-      } else {
-        // ...?
-        node = {
-          id,
-          bytes: length,
-          wastedBytes: 0,
-          executionTime: 0,
-        };
-      }
-
-      const executionTiming = executionTimings.find(timing => timing.url === src);
-      node.executionTime = executionTiming ? Math.round(executionTiming.total) : 0;
-
-      rootNodes.push({
-        id,
-        group: 'javascript',
-        node,
-      });
-    }
-
-    rootNodes.push(TreemapData.makeResourceSummaryRootNode(networkRecords, origin));
+    /** @type {TreemapData} */
+    const treemapData = {
+      js: await TreemapDataAudit.makeJavaScriptRootNodes(artifacts, context),
+      resources: [await TreemapDataAudit.makeResourceSummaryRootNode(artifacts, context)],
+    };
 
     /** @type {LH.Audit.Details.DebugData} */
     const details = {
       type: 'debugdata',
-      rootNodes,
+      treemapData,
     };
 
     return {
@@ -370,4 +389,4 @@ class TreemapData extends Audit {
   }
 }
 
-module.exports = TreemapData;
+module.exports = TreemapDataAudit;

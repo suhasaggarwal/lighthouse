@@ -12,16 +12,13 @@ const readFileAsync = promisify(fs.readFile);
 const writeFileAsync = promisify(fs.writeFile);
 const mkdir = fs.promises.mkdir;
 
-const browserify = require('browserify');
 const cpy = require('cpy');
 const ghPages = require('gh-pages');
 const glob = promisify(require('glob'));
 const lighthousePackage = require('../package.json');
 const rimraf = require('rimraf');
 const terser = require('terser');
-const {minifyFileTransform} = require('./build-utils.js');
 
-const htmlReportAssets = require('../lighthouse-core/report/html/html-report-assets.js');
 const sourceDir = `${__dirname}/../lighthouse-treemap`;
 const distDir = `${__dirname}/../dist/treemap`;
 
@@ -101,19 +98,20 @@ async function html() {
  * @return {Promise<void>}
  */
 async function compileJs() {
-  // idb-keyval dependency.
-  const idbKeyvalPath = require.resolve('idb-keyval/dist/idb-keyval-min.js');
-  const idbKeyvalJs = await readFileAsync(idbKeyvalPath, 'utf8');
-
-  // Viewer-specific JS files.
+  // Treemap-specific JS files.
   const srcJsFiles = await loadFiles(`${sourceDir}/app/src/*.js`);
 
   const contents = [
     `"use strict";`,
-    // idbKeyvalJs,
     ...srcJsFiles,
     fs.readFileSync(`${__dirname}/../node_modules/webtreemap-cdt/dist/webtreemap.js`, 'utf-8'),
   ];
+
+  if (process.env.DEBUG) {
+    await safeWriteFileAsync(`${distDir}/src/treemap.js`, contents.join('\n'));
+    return;
+  }
+
   const options = {
     output: {preamble: license}, // Insert license at top.
   };

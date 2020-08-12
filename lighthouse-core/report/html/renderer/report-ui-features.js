@@ -471,15 +471,17 @@ class ReportUIFeatures {
       }
       case 'open-treemap': {
         // WIP test code :)
-        const treemapData = /** @type {LH.Audit.Details.DebugData} */ (
+        const treemapDebugData = /** @type {LH.Audit.Details.DebugData} */ (
           this.json.audits['treemap-data'].details);
-        if (!treemapData) return;
+        if (!treemapDebugData) return;
 
         const windowName = `treemap-${this.json.requestedUrl}`;
+        // TODO: type as Treemap.Options
         const data = {
           lhr: this.json,
-          showViewId: 'javascript',
-          rootNodes: treemapData.rootNodes,
+          mode: {
+            selector: {type: 'group', value: 'js', viewId: 'all'},
+          },
         };
         ReportUIFeatures.openTabAndSendData(data, TREEMAP_URL, windowName);
         break;
@@ -676,13 +678,18 @@ class ReportUIFeatures {
   _renderBundleVizLinks() {
     if (!this.json.audits['treemap-data']) return;
     if (!this.json.audits['treemap-data'].details) return;
-    const treemapData = /** @type {LH.Audit.Details.DebugData} */ (
+    const treemapDebugData = /** @type {LH.Audit.Details.DebugData} */ (
       this.json.audits['treemap-data'].details);
+    if (!treemapDebugData) return;
+
+    /** @type {import('../../../audits/treemap-data').TreemapData} */
+    const treemapData = treemapDebugData.treemapData;
 
     for (const urlEl of this._dom.findAll('.lh-text__url', this._document)) {
       const anchorEl = /** @type {HTMLAnchorElement=} */ (urlEl.querySelector('a'));
       if (!anchorEl) continue;
-      const rootNode = treemapData.rootNodes[anchorEl.href];
+      // TODO: does this still work?
+      const rootNode = treemapData.js.find(rootNode => rootNode.id === anchorEl.href);
       if (!rootNode) continue;
 
       const externalButton = this._dom.createElement('span', 'lh-external-viz');
@@ -690,9 +697,10 @@ class ReportUIFeatures {
       externalButton.addEventListener('click', () => {
         const windowName = `viz-${this.json.requestedUrl}`;
         const data = {
-          documentUrl: this.json.requestedUrl,
-          id: anchorEl.href,
-          rootNodes: treemapData.rootNodes,
+          lhr: this.json,
+          mode: {
+            selector: {type: 'rootNodeId', value: anchorEl.href, viewId: 'all'},
+          },
         };
         ReportUIFeatures.openTabAndSendData(data, TREEMAP_URL, windowName);
       });
