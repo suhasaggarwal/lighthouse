@@ -20,6 +20,15 @@ const UIStrings = {
     'helps with debugging, and tracking down bugs in production. Consider enabling or updating ' +
     'source maps during JavaScript bundling to take advantage of this feature. ' +
     '[Learn more](https://developers.google.com/web/tools/chrome-devtools/javascript/source-maps).',
+  /** Label for a column in a data table. Entries will be URLs to JavaScript source maps. */
+  columnMapURL: 'Map URL',
+  /** Label for a possible error message indicating that a source map for a large, first-party JavaScript script is missing. */
+  missingSourceMapErrorMessage: 'Large JavaScript file is missing a source map',
+  /** Label for a possible error message indicating that the content of a source map is invalid because it is missing items in the sourcesContent attribute. */
+  missingSourceMapItemsErrorMesssage: `{missingItems, plural,
+    =1 {Missing 1 item in \`.sourcesContent\`}
+    other {Missing # items in \`.sourcesContent\`}
+    }`,
 };
 
 const str_ = i18n.createMessageInstanceIdFn(__filename, UIStrings);
@@ -77,7 +86,7 @@ class ValidSourceMaps extends Audit {
       if (isLargeFirstParty && (!sourceMap || !sourceMap.map)) {
         missingMapsForLargeFirstPartyFile = true;
         isMissingMapForLargeFirstPartyScriptUrl.add(scriptElement.src);
-        errors.push('Large JavaScript file is missing a source map');
+        errors.push(str_(UIStrings.missingSourceMapErrorMessage));
       }
 
       if (sourceMap && !sourceMap.map) {
@@ -92,7 +101,8 @@ class ValidSourceMaps extends Audit {
           if (sourcesContent.length < i || !sourcesContent[i]) missingSourcesContentCount += 1;
         }
         if (missingSourcesContentCount > 0) {
-          errors.push(`Missing ${missingSourcesContentCount} items in \`.sourcesContent\``);
+          errors.push(str_(UIStrings.missingSourceMapItemsErrorMesssage,
+            {missingItems: missingSourcesContentCount}));
         }
       }
 
