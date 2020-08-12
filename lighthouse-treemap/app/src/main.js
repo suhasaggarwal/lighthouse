@@ -8,12 +8,8 @@
 /** @typedef {import('../../../lighthouse-core/audits/treemap-data.js').RootNode} RootNode */
 /** @typedef {import('../../../lighthouse-core/audits/treemap-data.js').Node} Node2 */
 
-/**
- * @typedef Mode
- * @property {string} rootNodeId
- * @property {string} partitionBy
- * @property {string[]=} highlightNodeIds
- */
+const KB = 1024;
+const MB = KB * KB;
 
 /** @type {TreemapViewer} */
 let treemapViewer;
@@ -91,8 +87,6 @@ function rgb2hue(r, g, b) {
   return hue * 60; // hue is in [0,6], scale it up
 }
 
-const KB = 1024;
-const MB = KB * KB;
 /**
  * @param {number} bytes
  */
@@ -102,6 +96,10 @@ function formatBytes(bytes) {
   return bytes + ' B';
 }
 
+/**
+ * @param {number} value
+ * @param {string} unit
+ */
 function format(value, unit) {
   if (unit === 'bytes') return formatBytes(value);
   if (unit === 'time') return `${value} ms`;
@@ -204,13 +202,13 @@ class TreemapViewer {
     window.addEventListener('resize', () => {
       this.render();
     });
-  
+
     window.addEventListener('click', (e) => {
       const nodeEl = e.target.closest('.webtreemap-node');
       if (!nodeEl) return;
       this.updateColors();
     });
-  
+
     window.addEventListener('mouseover', (e) => {
       const nodeEl = e.target.closest('.webtreemap-node');
       if (!nodeEl) return;
@@ -225,7 +223,7 @@ class TreemapViewer {
   }
 
   /**
-   * @param {Mode} mode
+   * @param {Treemap.Mode} mode
    */
   show(mode) {
     this.mode = mode;
@@ -262,12 +260,12 @@ class TreemapViewer {
         children,
       };
       createViewModes(rootNodes, this.currentViewId);
-      createDataGrid(rootNodes);
+      this.createTable(rootNodes);
     } else {
       const rootNode = this.rootNodes.find(rootNode => rootNode.id === mode.rootNodeId);
       this.currentRootNode = rootNode.node;
       createViewModes([rootNode], this.currentViewId);
-      createDataGrid([rootNode]);
+      this.createTable([rootNode]);
     }
 
     // Clone because data is modified.
@@ -368,6 +366,67 @@ class TreemapViewer {
       node.dom.style.color = lum > 50 ? 'black' : 'white';
     });
   }
+
+  /**
+   * @param {RootNode[]} rootNodes
+   */
+  createTable(rootNodes) {
+    const gridPanelEl = find('.panel--datagrid');
+
+    gridPanelEl.innerHTML = '';
+
+    const data = [];
+    let maxSize = 0;
+    let maxWastedBytes = 0;
+    for (const rootNode of rootNodes) {
+      const node = rootNode.node;
+      // if (node.children) node = node.children[0];
+
+      dfs(node, (node, fullId) => {
+        if (node.children) return;
+
+        if (node.bytes) maxSize = Math.max(maxSize, node.bytes);
+        if (node.wastedBytes) maxWastedBytes = Math.max(maxWastedBytes, node.wastedBytes);
+
+        data.push({
+          name: fullId,
+          bytes: node.bytes,
+          wastedBytes: node.wastedBytes,
+        });
+      });
+    }
+
+    const gridEl = document.createElement('div');
+    gridPanelEl.append(gridEl);
+    const table = new Tabulator(gridEl, {
+      data, // load row data from array
+      height: '100%',
+      layout: 'fitColumns', // fit columns to width of table
+      tooltips: true, // show tool tips on cells
+      addRowPos: 'top', // when adding a new row, add it to the top of the table
+      history: true, // allow undo and redo actions on the table
+      resizableRows: true, // allow row order to be changed
+      initialSort: [ // set the initial sort order of the data
+        {column: 'bytes', dir: 'desc'},
+      ],
+      columns: [ // define the table columns
+        {title: 'Name', field: 'name'},
+        {title: 'Size', field: 'bytes', align: 'left', formatter: cell => formatBytes(cell.getValue())},
+        {title: 'Size', field: 'bytes', formatter: 'progress', formatterParams: {min: 0, max: maxSize, width: '25%'}},
+        {title: 'Unused Bytes', field: 'wastedBytes', align: 'left', formatter: cell => formatBytes(cell.getValue())},
+        {title: 'Unused Bytes', field: 'wastedBytes', formatter: 'progress', formatterParams: {min: 0, max: maxWastedBytes, width: '25%'}},
+      ],
+    });
+  }
+
+  toggleTable() {
+    const mainEl = find('main');
+    mainEl.addEventListener('animationstart', () => {
+      console.log('Animation started');
+    });
+    mainEl.classList.toggle('lh-main__show-table');
+    treemapViewer && treemapViewer.render();
+  }
 }
 
 /**
@@ -423,7 +482,7 @@ function createHeader(options) {
   bundleSelectorEl.value = options.id;
   bundleSelectorEl.addEventListener('change', onChange);
   partitionBySelectorEl.addEventListener('change', onChange);
-  toggleTableBtn.addEventListener('click', toggleTable);
+  toggleTableBtn.addEventListener('click', () => treemapViewer.toggleTable());
 }
 
 /**
@@ -543,57 +602,6 @@ function createViewModes(rootNodes, currentViewId) {
   }
 }
 
-/**
- * @param {RootNode[]} rootNodes
- */
-function createDataGrid(rootNodes) {
-  const gridPanelEl = find('.panel--datagrid');
-
-  gridPanelEl.innerHTML = '';
-
-  const data = [];
-  let maxSize = 0;
-  let maxWastedBytes = 0;
-  for (const rootNode of rootNodes) {
-    const node = rootNode.node;
-    // if (node.children) node = node.children[0];
-
-    dfs(node, (node, fullId) => {
-      if (node.children) return;
-
-      if (node.bytes) maxSize = Math.max(maxSize, node.bytes);
-      if (node.wastedBytes) maxWastedBytes = Math.max(maxWastedBytes, node.wastedBytes);
-
-      data.push({
-        name: fullId,
-        bytes: node.bytes,
-        wastedBytes: node.wastedBytes,
-      });
-    });
-  }
-
-  const gridEl = document.createElement('div');
-  gridPanelEl.append(gridEl);
-  const table = new Tabulator(gridEl, {
-    data, // load row data from array
-    height: '100%',
-    layout: 'fitColumns', // fit columns to width of table
-    tooltips: true, // show tool tips on cells
-    addRowPos: 'top', // when adding a new row, add it to the top of the table
-    history: true, // allow undo and redo actions on the table
-    resizableRows: true, // allow row order to be changed
-    initialSort: [ // set the initial sort order of the data
-      {column: 'bytes', dir: 'desc'},
-    ],
-    columns: [ // define the table columns
-      {title: 'Name', field: 'name'},
-      {title: 'Size', field: 'bytes', align: 'left', formatter: cell => formatBytes(cell.getValue())},
-      {title: 'Size', field: 'bytes', formatter: 'progress', formatterParams: {min: 0, max: maxSize, width: '25%'}},
-      {title: 'Unused Bytes', field: 'wastedBytes', align: 'left', formatter: cell => formatBytes(cell.getValue())},
-      {title: 'Unused Bytes', field: 'wastedBytes', formatter: 'progress', formatterParams: {min: 0, max: maxWastedBytes, width: '25%'}},
-    ],
-  });
-}
 
 /**
  * @param {Treemap.Options} options
@@ -661,12 +669,3 @@ async function debugWrapper() {
 }
 
 document.addEventListener('DOMContentLoaded', debugWrapper);
-
-function toggleTable() {
-  const mainEl = find('main');
-  mainEl.addEventListener('animationstart', () => {
-    console.log('Animation started');
-  });
-  mainEl.classList.toggle('lh-main__show-table');
-  treemapViewer && treemapViewer.render();
-}

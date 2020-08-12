@@ -10,6 +10,6 @@
   "include": [
     "app/src/**/*.js",
     "../types/*.d.ts",
-    "./types/*.d.ts", "../lighthouse-treemap/app/src/treemap.js", "../lighthouse-treemap/types/treemap.d.ts",
+    "./types/*.d.ts",
   ],
 }

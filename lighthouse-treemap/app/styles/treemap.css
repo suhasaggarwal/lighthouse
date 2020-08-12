@@ -10,10 +10,6 @@ body {
   display: grid;
   height: 100vh;
   grid-template-rows: 0.1fr 1fr 0fr;
-  /* grid-template-areas:
-    "header  header header header header"
-    "treemap    treemap  treemap  treemap  treemap"
-    "grid    grid     grid     grid     grid    "; */
   grid-column-gap: 0px;
   grid-row-gap: 0px;
   transition: grid-template-rows 8s;
@@ -22,6 +18,20 @@ body {
 
 .lh-main__show-table {
   grid-template-rows: 0.1fr 1fr 0.3fr;
+}
+
+.lh-header--section {
+  display: flex;
+  justify-content: space-between;
+}
+.lh-header--title {
+  width: 50%;
+}
+.lh-header--url-and-size {
+  color: grey;
+}
+.lh-header--url {
+  color: black;
 }
 
 .panel--modals {
@@ -44,14 +54,12 @@ body {
   border: solid 1px blue;
   padding: 5px;
   font-size: 16px;
-  /* margin: 10px; */
 }
 .view-mode--active {
   background-color: lightblue;
 }
 
 header {
-  /* grid-area: header; */
   margin: 5px;
 }
 
@@ -73,4 +81,12 @@ header {
   font-size: 14px;
   text-align: center;
   word-break: break-word;
+}
+
+.bundle-selector {
+  max-width: 30%;
+}
+
+.lh-button {
+
 }

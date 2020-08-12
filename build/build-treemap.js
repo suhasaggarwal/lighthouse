@@ -92,7 +92,7 @@ async function css() {
  * @return {Promise<void>}
  */
 async function html() {
-  let htmlSrc = await readFileAsync(`${sourceDir}/app/index.html`, {encoding: 'utf8'});
+  const htmlSrc = await readFileAsync(`${sourceDir}/app/index.html`, {encoding: 'utf8'});
   await safeWriteFileAsync(`${distDir}/index.html`, htmlSrc);
 }
 
