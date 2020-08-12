@@ -17,8 +17,8 @@ const UIStrings = {
   failureTitle: 'Missing source maps for large first-party JavaScript',
   /** Description of a Lighthouse audit that tells the user that their JavaScript source maps are invalid or missing. This is displayed after a user expands the section to see more. No character length limits. 'Learn More' becomes link text to additional documentation. */
   description: 'Source maps translate minified code to the original source code. This helps ' +
-    'developers debug in production. In addition, Lighthouse is able to provide further insights. Consider deploying ' +
-    'source maps to take advantage of these benefits. ' +
+    'developers debug in production. In addition, Lighthouse is able to provide further ' +
+    'insights. Consider deploying source maps to take advantage of these benefits. ' +
     '[Learn more](https://developers.google.com/web/tools/chrome-devtools/javascript/source-maps).',
   /** Label for a column in a data table. Entries will be URLs to JavaScript source maps. */
   columnMapURL: 'Map URL',
@@ -86,11 +86,11 @@ class ValidSourceMaps extends Audit {
       if (isLargeFirstParty && (!sourceMap || !sourceMap.map)) {
         missingMapsForLargeFirstPartyFile = true;
         isMissingMapForLargeFirstPartyScriptUrl.add(scriptElement.src);
-        errors.push(str_(UIStrings.missingSourceMapErrorMessage));
+        errors.push({error: str_(UIStrings.missingSourceMapErrorMessage)});
       }
 
       if (sourceMap && !sourceMap.map) {
-        errors.push(sourceMap.errorMessage);
+        errors.push({error: sourceMap.errorMessage});
       }
 
       // Sources content errors.
@@ -101,8 +101,8 @@ class ValidSourceMaps extends Audit {
           if (sourcesContent.length < i || !sourcesContent[i]) missingSourcesContentCount += 1;
         }
         if (missingSourcesContentCount > 0) {
-          errors.push(str_(UIStrings.missingSourceMapItemsErrorMesssage,
-            {missingItems: missingSourcesContentCount}));
+          errors.push({error: str_(UIStrings.missingSourceMapItemsErrorMesssage,
+              {missingItems: missingSourcesContentCount})});
         }
       }
 
@@ -110,7 +110,10 @@ class ValidSourceMaps extends Audit {
         results.push({
           scriptUrl: scriptElement.src,
           sourceMapUrl: sourceMap && sourceMap.sourceMapUrl,
-          errors: errors.length ? [errors[0]] : errors,
+          subItems: /** @type {LH.Audit.Details.TableSubItems} */ ({
+            type: 'subitems',
+            items: errors,
+          }),
         });
       }
     }
@@ -121,7 +124,7 @@ class ValidSourceMaps extends Audit {
       {
         key: 'scriptUrl',
         itemType: 'url',
-        subRows: {key: 'errors', itemType: 'text'},
+        subItemsHeading: {key: 'error'},
         text: str_(i18n.UIStrings.columnURL),
       },
       {key: 'sourceMapUrl', itemType: 'url', text: 'Map URL'}, // TODO uistring
@@ -136,8 +139,8 @@ class ValidSourceMaps extends Audit {
       if (!missingMapA && missingMapB) return 1;
 
       // Then sort by whether one has errors and the other doesn't.
-      if (a.errors.length && !b.errors.length) return -1;
-      if (!a.errors.length && b.errors.length) return 1;
+      if (a.subItems.items.length && !b.subItems.items.length) return -1;
+      if (!a.subItems.items.length && b.subItems.items.length) return 1;
 
       // Then sort by script url.
       return b.scriptUrl.localeCompare(a.scriptUrl);
