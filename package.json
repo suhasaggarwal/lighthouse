@@ -22,6 +22,7 @@
     "build-smokehouse-bundle": "node ./build/build-smokehouse-bundle.js",
     "build-lr": "node ./build/build-lightrider-bundles.js",
     "build-pack": "bash build/build-pack.sh",
+    "build-treemap": "node ./build/build-treemap.js",
     "build-viewer": "node ./build/build-viewer.js",
     "clean": "rimraf dist proto/scripts/*.json proto/scripts/*_pb2.* proto/scripts/*_pb.* proto/scripts/__pycache__ proto/scripts/*.pyc *.report.html *.report.dom.html *.report.json *.devtoolslog.json *.trace.json lighthouse-core/lib/i18n/locales/*.ctc.json || true",
     "lint": "[ \"$CI\" = true ] && eslint --quiet -f codeframe . || eslint .",
@@ -72,7 +73,9 @@
     "compile-proto": "protoc --python_out=./ ./proto/lighthouse-result.proto && mv ./proto/*_pb2.py ./proto/scripts || (echo \"❌ Install protobuf ≥ 3.7.1 to compile the proto file.\" && false)",
     "build-proto-roundtrip": "mkdir -p .tmp && cross-env PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION_VERSION=2 python proto/scripts/json_roundtrip_via_proto.py",
     "static-server": "node lighthouse-cli/test/fixtures/static-server.js",
-    "viewer": "cd dist/viewer && python -m SimpleHTTPServer"
+    "serve-dist": "cd dist && python -m SimpleHTTPServer",
+    "serve-treemap": "yarn serve-dist",
+    "serve-viewer": "yarn serve-dist"
   },
   "devDependencies": {
     "@build-tracker/cli": "^1.0.0-beta.15",

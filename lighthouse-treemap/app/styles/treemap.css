@@ -26,19 +26,16 @@ body {
 
 .panel--modals {
   display: flex;
-  /* grid-area: view; */
 }
 
 .panel--settings {
-  /* grid-area: settings; */
 }
 
 .panel--treemap {
-  /* grid-area: treemap; */
+  margin: 10px;
 }
 
 .panel--datagrid {
-  /* grid-area: grid; */
   overflow-y: hidden;
 }
 
@@ -46,6 +43,7 @@ body {
   cursor: pointer;
   border: solid 1px blue;
   padding: 5px;
+  font-size: 16px;
   /* margin: 10px; */
 }
 .view-mode--active {

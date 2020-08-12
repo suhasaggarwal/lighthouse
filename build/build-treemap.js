@@ -22,11 +22,11 @@ const terser = require('terser');
 const {minifyFileTransform} = require('./build-utils.js');
 
 const htmlReportAssets = require('../lighthouse-core/report/html/html-report-assets.js');
-const sourceDir = `${__dirname}/../lighthouse-viewer`;
-const distDir = `${__dirname}/../dist/viewer`;
+const sourceDir = `${__dirname}/../lighthouse-treemap`;
+const distDir = `${__dirname}/../dist/treemap`;
 
 const license = `/*
-* @license Copyright 2018 The Lighthouse Authors. All Rights Reserved.
+* @license Copyright 2020 The Lighthouse Authors. All Rights Reserved.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -70,10 +70,8 @@ async function safeWriteFileAsync(filePath, data) {
 function copyAssets() {
   return cpy([
     'images/**/*',
-    'sw.js',
-    'manifest.json',
-    'treemap/index.html',
-    'treemap/debug.json',
+    'index.html',
+    'debug.json',
   ], distDir, {
     cwd: `${sourceDir}/app/`,
     parents: true,
@@ -81,13 +79,12 @@ function copyAssets() {
 }
 
 /**
- * Concat report and viewer stylesheets into single viewer.css file.
+ * Concat report and viewer stylesheets into single treemap.css file.
  * @return {Promise<void>}
  */
 async function css() {
-  const reportCss = htmlReportAssets.REPORT_CSS;
-  const viewerCss = await readFileAsync(`${sourceDir}/app/styles/viewer.css`, {encoding: 'utf8'});
-  await safeWriteFileAsync(`${distDir}/styles/viewer.css`, [reportCss, viewerCss].join('\n'));
+  const viewerCss = await readFileAsync(`${sourceDir}/app/styles/treemap.css`, {encoding: 'utf8'});
+  await safeWriteFileAsync(`${distDir}/styles/treemap.css`, [viewerCss].join('\n'));
 }
 
 /**
@@ -96,51 +93,26 @@ async function css() {
  */
 async function html() {
   let htmlSrc = await readFileAsync(`${sourceDir}/app/index.html`, {encoding: 'utf8'});
-  htmlSrc = htmlSrc.replace(/%%LIGHTHOUSE_TEMPLATES%%/, htmlReportAssets.REPORT_TEMPLATES);
   await safeWriteFileAsync(`${distDir}/index.html`, htmlSrc);
 }
 
 /**
- * Combine multiple JS files into single viewer.js file.
+ * Combine multiple JS files into single treemap.js file.
  * @return {Promise<void>}
  */
 async function compileJs() {
-  // JS bundle from browserified ReportGenerator.
-  const generatorFilename = `${sourceDir}/../lighthouse-core/report/report-generator.js`;
-  const generatorBrowserify = browserify(generatorFilename, {standalone: 'ReportGenerator'})
-    .transform('@wardpeet/brfs', {
-      readFileSyncTransform: minifyFileTransform,
-    });
-
-  /** @type {Promise<string>} */
-  const generatorJsPromise = new Promise((resolve, reject) => {
-    generatorBrowserify.bundle((err, src) => {
-      if (err) return reject(err);
-      resolve(src.toString());
-    });
-  });
-  const generatorJs = await generatorJsPromise;
-
-  // Report renderer scripts.
-  const rendererJs = htmlReportAssets.REPORT_JAVASCRIPT;
-
   // idb-keyval dependency.
   const idbKeyvalPath = require.resolve('idb-keyval/dist/idb-keyval-min.js');
   const idbKeyvalJs = await readFileAsync(idbKeyvalPath, 'utf8');
 
-  // Current Lighthouse version as a global variable.
-  const versionJs = `window.LH_CURRENT_VERSION = '${lighthousePackage.version}';`;
-
   // Viewer-specific JS files.
-  const viewJsFiles = await loadFiles(`${sourceDir}/app/src/*.js`);
+  const srcJsFiles = await loadFiles(`${sourceDir}/app/src/*.js`);
 
   const contents = [
     `"use strict";`,
-    generatorJs,
-    rendererJs,
-    idbKeyvalJs,
-    versionJs,
-    ...viewJsFiles,
+    // idbKeyvalJs,
+    ...srcJsFiles,
+    fs.readFileSync(`${__dirname}/../node_modules/webtreemap-cdt/dist/webtreemap.js`, 'utf-8'),
   ];
   const options = {
     output: {preamble: license}, // Insert license at top.
@@ -150,19 +122,19 @@ async function compileJs() {
     throw uglified.error;
   }
 
-  await safeWriteFileAsync(`${distDir}/src/viewer.js`, uglified.code);
+  await safeWriteFileAsync(`${distDir}/src/treemap.js`, uglified.code);
 }
 
 /**
- * Publish viewer to gh-pages branch.
+ * Publish treemap to gh-pages branch.
  * @return {Promise<void>}
  */
 async function deploy() {
   return new Promise((resolve, reject) => {
     ghPages.publish(distDir, {
       add: true, // keep existing files
-      dest: 'viewer',
-      message: `Update viewer to lighthouse@${lighthousePackage.version}`,
+      dest: 'treemap',
+      message: `Update treemap to lighthouse@${lighthousePackage.version}`,
     }, err => {
       if (err) return reject(err);
       resolve();
@@ -171,7 +143,7 @@ async function deploy() {
 }
 
 /**
- * Build viewer, optionally deploying to gh-pages if `--deploy` flag was set.
+ * Build treemap, optionally deploying to gh-pages if `--deploy` flag was set.
  */
 async function run() {
   // Clean and build.

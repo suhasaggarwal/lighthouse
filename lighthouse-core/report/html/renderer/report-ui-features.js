@@ -473,11 +473,12 @@ class ReportUIFeatures {
         // WIP test code :)
         const treemapData = /** @type {LH.Audit.Details.DebugData} */ (
           this.json.audits['treemap-data'].details);
+        if (!treemapData) return;
 
-        const windowName = `viz-${this.json.requestedUrl}`;
+        const windowName = `treemap-${this.json.requestedUrl}`;
         const data = {
-          documentUrl: this.json.requestedUrl,
-          id: 'javascript',
+          lhr: this.json,
+          showViewId: 'javascript',
           rootNodes: treemapData.rootNodes,
         };
         ReportUIFeatures.openTabAndSendData(data, TREEMAP_URL, windowName);

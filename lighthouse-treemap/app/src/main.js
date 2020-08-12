@@ -175,11 +175,16 @@ function sortByPrecedence(precedence, a, b) {
 
 class TreemapViewer {
   /**
-   * @param {string} documentUrl
-   * @param {RootNode[]} rootNodes
+   * @param {Treemap.Options} options
    * @param {HTMLElement} el
    */
-  constructor(documentUrl, rootNodes, el) {
+  constructor(options, el) {
+    const treemapData = /** @type {LH.Audit.Details.DebugData} */ (
+      options.lhr.audits['treemap-data'].details);
+    if (!treemapData || !treemapData.rootNodes) throw new Error('missing treemap-data');
+    /** @type {RootNode[]} */
+    const rootNodes = treemapData.rootNodes;
+
     for (const rootNode of rootNodes) {
       // TODO: remove.
       dfs(rootNode.node, node => node.originalId = node.id);
@@ -187,12 +192,36 @@ class TreemapViewer {
       dfs(rootNode.node, node => node.idHash = idHash);
     }
 
-    this.documentUrl = documentUrl;
+    this.documentUrl = options.lhr.requestedUrl;
     this.rootNodes = rootNodes;
     this.el = el;
     this.currentRootNode = null;
     this.getHue = stableHasher(COLOR_HUES);
-    this.currentViewId = null;
+    this.currentViewId = options.showViewId;
+  }
+
+  initListeners() {
+    window.addEventListener('resize', () => {
+      this.render();
+    });
+  
+    window.addEventListener('click', (e) => {
+      const nodeEl = e.target.closest('.webtreemap-node');
+      if (!nodeEl) return;
+      this.updateColors();
+    });
+  
+    window.addEventListener('mouseover', (e) => {
+      const nodeEl = e.target.closest('.webtreemap-node');
+      if (!nodeEl) return;
+      nodeEl.classList.add('webtreemap-node--hover');
+    });
+
+    window.addEventListener('mouseout', (e) => {
+      const nodeEl = e.target.closest('.webtreemap-node'); COLOR_HUES;
+      if (!nodeEl) return;
+      nodeEl.classList.remove('webtreemap-node--hover');
+    });
   }
 
   /**
@@ -342,7 +371,7 @@ class TreemapViewer {
 }
 
 /**
- * @param {Options} options
+ * @param {Treemap.Options} options
  */
 function createHeader(options) {
   const bundleSelectorEl = find('.bundle-selector');
@@ -399,7 +428,7 @@ function createHeader(options) {
 
 /**
  * @param {RootNode[]} rootNodes
- * @param {string=} viewId
+ * @param {string=} currentViewId
  */
 function createViewModes(rootNodes, currentViewId) {
   const javascriptRootNodes = rootNodes.filter(n => n.group === 'javascript');
@@ -444,16 +473,30 @@ function createViewModes(rootNodes, currentViewId) {
 
   {
     let bytes = 0;
+    for (const rootNode of javascriptRootNodes) {
+      dfs(rootNode.node, node => {
+        if (node.children) return; // Only consider leaf nodes.
+        bytes += node.bytes;
+      });
+    }
+    makeViewMode('all', `All (${formatBytes(bytes)})`, {
+      partitionBy: 'bytes',
+    });
+  }
+
+  {
+    let bytes = 0;
+    /** @type {string[]} */
     const highlightNodeIds = [];
     for (const rootNode of javascriptRootNodes) {
       dfs(rootNode.node, node => {
         if (node.children) return; // Only consider leaf nodes.
-        if (node.wastedBytes < 100 * 1024) return;
+        if (node.wastedBytes < 50 * 1024) return;
         bytes += node.wastedBytes;
         highlightNodeIds.push(node.id);
       });
     }
-    makeViewMode('unused', `Unused JavaScript: ${formatBytes(bytes)}`, {
+    makeViewMode('unused', `Unused JS (${formatBytes(bytes)})`, {
       partitionBy: 'wastedBytes',
       highlightNodeIds,
     });
@@ -461,6 +504,7 @@ function createViewModes(rootNodes, currentViewId) {
 
   {
     let bytes = 0;
+    /** @type {string[]} */
     const highlightNodeIds = [];
     for (const rootNode of javascriptRootNodes) {
       if (!rootNode.node.children) continue; // Only consider bundles.
@@ -472,7 +516,7 @@ function createViewModes(rootNodes, currentViewId) {
         highlightNodeIds.push(node.id);
       });
     }
-    makeViewMode('large', `Large Modules: ${formatBytes(bytes)}`, {
+    makeViewMode('large', `Large Modules (${formatBytes(bytes)})`, {
       partitionBy: 'bytes',
       highlightNodeIds,
     });
@@ -480,6 +524,7 @@ function createViewModes(rootNodes, currentViewId) {
 
   {
     let bytes = 0;
+    /** @type {string[]} */
     const highlightNodeIds = [];
     for (const rootNode of javascriptRootNodes) {
       if (!rootNode.node.children) continue; // Only consider bundles.
@@ -491,7 +536,7 @@ function createViewModes(rootNodes, currentViewId) {
         highlightNodeIds.push(node.id);
       });
     }
-    makeViewMode('duplicate', `Duplicate Modules: ${formatBytes(bytes)}`, {
+    makeViewMode('duplicate', `Duplicate Modules (${formatBytes(bytes)})`, {
       partitionBy: 'bytes',
       highlightNodeIds,
     });
@@ -551,21 +596,13 @@ function createDataGrid(rootNodes) {
 }
 
 /**
- * @typedef Options
- * @property {string} documentUrl
- * @property {string} id
- * @property {RootNode[]} rootNodes
- */
-
-/**
- * @param {Options} options
+ * @param {Treemap.Options} options
  */
 function init(options) {
   createHeader(options);
-  treemapViewer =
-    new TreemapViewer(options.documentUrl, options.rootNodes, find('.panel--treemap'));
+  treemapViewer = new TreemapViewer(options, find('.panel--treemap'));
   treemapViewer.show({
-    rootNodeId: options.id,
+    rootNodeId: options.showViewId,
     partitionBy: 'bytes',
   });
 
@@ -575,6 +612,7 @@ function init(options) {
   if (self.opener && !self.opener.closed) {
     self.opener.postMessage({rendered: true}, '*');
   }
+
   if (window.ga) {
     // TODO what are these?
     // window.ga('send', 'event', 'treemap', 'open in viewer');
@@ -583,13 +621,17 @@ function init(options) {
 }
 
 function main() {
-  if (window.__TREEMAP_OPTIONS) init(window.__TREEMAP_OPTIONS);
-  else {
+  if (window.__TREEMAP_OPTIONS) {
+    init(window.__TREEMAP_OPTIONS);
+  } else {
     window.addEventListener('message', e => {
       if (e.source !== self.opener) return;
+      /** @type {Treemap.Options} */
       const options = e.data;
-      const {documentUrl, id, rootNodes} = options;
-      if (!rootNodes || !documentUrl || !id) return;
+      const {lhr, showViewId} = options;
+      const documentUrl = lhr.requestedUrl;
+
+      if (!documentUrl || !showViewId) return;
 
       // Allows for saving the document and loading with data intact.
       const scriptEl = document.createElement('script');
@@ -605,26 +647,7 @@ function main() {
     self.opener.postMessage({opened: true}, '*');
   }
 
-  window.addEventListener('resize', () => {
-    treemapViewer && treemapViewer.render();
-  });
-
-  window.addEventListener('click', (e) => {
-    const nodeEl = e.target.closest('.webtreemap-node');
-    if (!nodeEl) return;
-    treemapViewer && treemapViewer.updateColors();
-  });
-
-  window.addEventListener('mouseover', (e) => {
-    const nodeEl = e.target.closest('.webtreemap-node');
-    if (!nodeEl) return;
-    nodeEl.classList.add('webtreemap-node--hover');
-  });
-  window.addEventListener('mouseout', (e) => {
-    const nodeEl = e.target.closest('.webtreemap-node'); COLOR_HUES;
-    if (!nodeEl) return;
-    nodeEl.classList.remove('webtreemap-node--hover');
-  });
+  treemapViewer.initListeners();
 }
 
 async function debugWrapper() {
@@ -640,7 +663,7 @@ async function debugWrapper() {
 document.addEventListener('DOMContentLoaded', debugWrapper);
 
 function toggleTable() {
-  const mainEl = document.querySelector('main');
+  const mainEl = find('main');
   mainEl.addEventListener('animationstart', () => {
     console.log('Animation started');
   });
