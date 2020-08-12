@@ -41,7 +41,7 @@ class ValidSourceMaps extends Audit {
   }
 
   /**
-   * Returns true if the size of the script exceeds a static threshold
+   * Returns true if the size of the script exceeds a static threshold.
    * @param {LH.Artifacts.ScriptElement} scriptElement
    * @param {string} finalURL
    * @return {boolean}
