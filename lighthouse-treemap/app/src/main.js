@@ -8,119 +8,8 @@
 /** @typedef {import('../../../lighthouse-core/audits/treemap-data.js').RootNode} RootNode */
 /** @typedef {import('../../../lighthouse-core/audits/treemap-data.js').Node} Node2 */
 
-const KB = 1024;
-const MB = KB * KB;
-
 /** @type {TreemapViewer} */
 let treemapViewer;
-
-// From DevTools:
-// https://cs.chromium.org/chromium/src/third_party/devtools-frontend/src/front_end/quick_open/CommandMenu.js?l=255&rcl=ad5c586c30a6bc55962b7a96b0533911c86bd4fc
-const COLOR_HUES = [
-  '#F44336', '#E91E63', '#9C27B0', '#673AB7', '#3F51B5', '#03A9F4',
-  '#00BCD4', '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFC107',
-  '#FF9800', '#FF5722', '#795548', '#9E9E9E', '#607D8B',
-].map(hex => {
-  const hexParts = hex.slice(1).split(/(..)/).filter(Boolean);
-  const rgb = hexParts.map(part => parseInt(part, 16));
-  return rgb2hue(...rgb);
-});
-
-/**
- * @template T
- * @param {T[]} items
- * @return {T|null}
- */
-function stableHasher(items) {
-  // Clone.
-  items = [...items];
-
-  const assignedItems = {};
-  return hash => {
-    if (hash in assignedItems) return assignedItems[hash];
-    if (items.length === 0) return null;
-    const [assignedColor] = items.splice(hash % items.length, 1);
-    assignedItems[hash] = assignedColor;
-    return assignedColor;
-  };
-}
-
-/**
- * Brilliant code by akinuri
- * https://stackoverflow.com/a/39147465
- * @param {number} r
- * @param {number} g
- * @param {number} b
- */
-function rgb2hue(r, g, b) {
-  r /= 255;
-  g /= 255;
-  b /= 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const c = max - min;
-  let hue;
-  if (c == 0) {
-    hue = 0;
-  } else {
-    switch (max) {
-      case r:
-        var segment = (g - b) / c;
-        var shift = 0 / 60; // R° / (360° / hex sides)
-        if (segment < 0) { // hue > 180, full rotation
-          shift = 360 / 60; // R° / (360° / hex sides)
-        }
-        hue = segment + shift;
-        break;
-      case g:
-        var segment = (b - r) / c;
-        var shift = 120 / 60; // G° / (360° / hex sides)
-        hue = segment + shift;
-        break;
-      case b:
-        var segment = (r - g) / c;
-        var shift = 240 / 60; // B° / (360° / hex sides)
-        hue = segment + shift;
-        break;
-    }
-  }
-  return hue * 60; // hue is in [0,6], scale it up
-}
-
-/**
- * @param {number} bytes
- */
-function formatBytes(bytes) {
-  if (bytes >= MB) return (bytes / MB).toFixed(2) + ' MB';
-  if (bytes >= KB) return (bytes / KB).toFixed(2) + ' KB';
-  return bytes + ' B';
-}
-
-/**
- * @param {number} value
- * @param {string} unit
- */
-function format(value, unit) {
-  if (unit === 'bytes') return formatBytes(value);
-  if (unit === 'time') return `${value} ms`;
-  return `${value} ${unit}`;
-}
-
-/**
- * Guaranteed context.querySelector. Always returns an element or throws if
- * nothing matches query.
- * @param {string} query
- * @param {ParentNode=} context
- * @return {HTMLElement}
- */
-function find(query, context = document) {
-  /** @type {?HTMLElement} */
-  const result = context.querySelector(query);
-  if (result === null) {
-    throw new Error(`query ${query} not found`);
-  }
-  return result;
-}
 
 /**
  *
@@ -137,10 +26,6 @@ function dfs(node, fn, fullId = '') {
   }
 }
 
-function hsl(h, s, l) {
-  return `hsl(${h}, ${s}%, ${l}%)`;
-}
-
 /**
  * @param {string} string
  * @param {number} length
@@ -150,26 +35,6 @@ function elide(string, length) {
   return string.slice(0, length) + '…';
 }
 
-function sortByPrecedence(precedence, a, b) {
-  const aIndex = precedence.indexOf(a);
-  const bIndex = precedence.indexOf(b);
-
-  // If neither value has a title with a predefined order, use an alphabetical comparison.
-  if (aIndex === -1 && bIndex === -1) {
-    return a.localeCompare(b);
-  }
-
-  // If just one value has a title with a predefined order, it is greater.
-  if (aIndex === -1 && bIndex >= 0) {
-    return 1;
-  }
-  if (bIndex === -1 && aIndex >= 0) {
-    return -1;
-  }
-
-  // Both values have a title with a predefined order, so do a simple comparison.
-  return aIndex - bIndex;
-}
 
 class TreemapViewer {
   /**
@@ -194,7 +59,7 @@ class TreemapViewer {
     this.rootNodes = rootNodes;
     this.el = el;
     this.currentRootNode = null;
-    this.getHue = stableHasher(COLOR_HUES);
+    this.getHue = Util.stableHasher(Util.COLOR_HUES);
     this.currentViewId = options.showViewId;
   }
 
@@ -216,7 +81,7 @@ class TreemapViewer {
     });
 
     window.addEventListener('mouseout', (e) => {
-      const nodeEl = e.target.closest('.webtreemap-node'); COLOR_HUES;
+      const nodeEl = e.target.closest('.webtreemap-node'); Util.COLOR_HUES;
       if (!nodeEl) return;
       nodeEl.classList.remove('webtreemap-node--hover');
     });
@@ -229,7 +94,7 @@ class TreemapViewer {
     this.mode = mode;
 
     // Update options view.
-    const partitionBySelectorEl = find('.partition-selector');
+    const partitionBySelectorEl = Util.find('.partition-selector');
     partitionBySelectorEl.value = mode.partitionBy;
 
     if (mode.rootNodeId === 'javascript') {
@@ -302,7 +167,7 @@ class TreemapViewer {
         calculate: node => {
           const unit = this.mode.partitionBy === 'executionTime' ? 'time' : 'bytes';
           const value = node[this.mode.partitionBy];
-          return `${format(value, unit)} (${Math.round(value / total * 100)}%)`;
+          return `${Util.format(value, unit)} (${Math.round(value / total * 100)}%)`;
         },
       },
     ];
@@ -324,16 +189,16 @@ class TreemapViewer {
       // const title = elide(node.originalId, 60);
       // const value = node[this.mode.partitionBy];
       // const unit = this.mode.partitionBy === 'executionTime' ? 'time' : 'bytes';
-      // // node.id = `${elide(node.originalId, 60)} • ${formatBytes(bytes)} • ${Math.round(bytes / total * 100)}%`;
-      // node.id = `${title} • ${format(value, unit)} ${this.mode.partitionBy} (${Math.round(value / total * 100)}%)`;
+      // // node.id = `${elide(node.originalId, 60)} • ${Util.formatBytes(bytes)} • ${Math.round(bytes / total * 100)}%`;
+      // node.id = `${title} • ${Util.format(value, unit)} ${this.mode.partitionBy} (${Math.round(value / total * 100)}%)`;
 
 
       // if (this.mode.partitionBy === 'bytes') {
       //   const total = this.currentRootNode.bytes;
-      //   node.id = `${elide(node.originalId, 60)} • ${formatBytes(bytes)} • ${Math.round(bytes / total * 100)}%`;
+      //   node.id = `${elide(node.originalId, 60)} • ${Util.formatBytes(bytes)} • ${Math.round(bytes / total * 100)}%`;
       // } else if (this.mode.partitionBy === 'wastedBytes') {
-      //   // node.id = `${elide(node.originalId, 60)} • ${formatBytes(wastedBytes)} wasted • ${Math.round((1 - wastedBytes / bytes) * 100)}% usage`;
-      //   node.id = `${elide(node.originalId, 60)} • ${formatBytes(wastedBytes)} wasted • ${Math.round(wastedBytes / this.currentRootNode.wastedBytes * 100)}%`;
+      //   // node.id = `${elide(node.originalId, 60)} • ${Util.formatBytes(wastedBytes)} wasted • ${Math.round((1 - wastedBytes / bytes) * 100)}% usage`;
+      //   node.id = `${elide(node.originalId, 60)} • ${Util.formatBytes(wastedBytes)} wasted • ${Math.round(wastedBytes / this.currentRootNode.wastedBytes * 100)}%`;
       // } else if (this.mode.partitionBy === 'executionTime' && executionTime !== undefined) {
       //   node.id = `${elide(node.originalId, 60)} • ${Math.round(executionTime)} ms • ${Math.round(executionTime / this.currentRootNode.executionTime * 100)}%`;
       // } else {
@@ -362,7 +227,7 @@ class TreemapViewer {
       const sat = 60;
       const lum = 90;
 
-      node.dom.style.backgroundColor = hsl(hue, sat, Math.round(lum));
+      node.dom.style.backgroundColor = Util.hsl(hue, sat, Math.round(lum));
       node.dom.style.color = lum > 50 ? 'black' : 'white';
     });
   }
@@ -371,7 +236,7 @@ class TreemapViewer {
    * @param {RootNode[]} rootNodes
    */
   createTable(rootNodes) {
-    const gridPanelEl = find('.panel--datagrid');
+    const gridPanelEl = Util.find('.panel--datagrid');
 
     gridPanelEl.innerHTML = '';
 
@@ -411,16 +276,16 @@ class TreemapViewer {
       ],
       columns: [ // define the table columns
         {title: 'Name', field: 'name'},
-        {title: 'Size', field: 'bytes', align: 'left', formatter: cell => formatBytes(cell.getValue())},
+        {title: 'Size', field: 'bytes', align: 'left', formatter: cell => Util.formatBytes(cell.getValue())},
         {title: 'Size', field: 'bytes', formatter: 'progress', formatterParams: {min: 0, max: maxSize, width: '25%'}},
-        {title: 'Unused Bytes', field: 'wastedBytes', align: 'left', formatter: cell => formatBytes(cell.getValue())},
+        {title: 'Unused Bytes', field: 'wastedBytes', align: 'left', formatter: cell => Util.formatBytes(cell.getValue())},
         {title: 'Unused Bytes', field: 'wastedBytes', formatter: 'progress', formatterParams: {min: 0, max: maxWastedBytes, width: '25%'}},
       ],
     });
   }
 
   toggleTable() {
-    const mainEl = find('main');
+    const mainEl = Util.find('main');
     mainEl.addEventListener('animationstart', () => {
       console.log('Animation started');
     });
@@ -433,9 +298,9 @@ class TreemapViewer {
  * @param {Treemap.Options} options
  */
 function createHeader(options) {
-  const bundleSelectorEl = find('.bundle-selector');
-  const partitionBySelectorEl = find('.partition-selector');
-  const toggleTableBtn = find('.lh-button--toggle-table');
+  const bundleSelectorEl = Util.find('.bundle-selector');
+  const partitionBySelectorEl = Util.find('.partition-selector');
+  const toggleTableBtn = Util.find('.lh-button--toggle-table');
 
   bundleSelectorEl.innerHTML = '';
 
@@ -463,7 +328,7 @@ function createHeader(options) {
   }
 
   const groups = [...nodesByGroup.keys()]
-    .sort((a, b) => sortByPrecedence(['javascript'], a, b));
+    .sort((a, b) => Util.sortByPrecedence(['javascript'], a, b));
   for (const group of groups) {
     const rootNodes = nodesByGroup.get(group);
     const aggregateNodes = rootNodes.length > 1 && group !== 'misc';
@@ -492,11 +357,11 @@ function createHeader(options) {
 function createViewModes(rootNodes, currentViewId) {
   const javascriptRootNodes = rootNodes.filter(n => n.group === 'javascript');
 
-  const viewModesPanel = find('.panel--modals');
+  const viewModesPanel = Util.find('.panel--modals');
   /**
    * @param {string} viewId
    * @param {string} name
-   * @param {Partial<Mode>} modeOptions
+   * @param {Partial<Treemap.Mode>} modeOptions
    */
   function makeViewMode(viewId, name, modeOptions) {
     const isCurrentView = viewId === currentViewId;
@@ -538,7 +403,7 @@ function createViewModes(rootNodes, currentViewId) {
         bytes += node.bytes;
       });
     }
-    makeViewMode('all', `All (${formatBytes(bytes)})`, {
+    makeViewMode('all', `All (${Util.formatBytes(bytes)})`, {
       partitionBy: 'bytes',
     });
   }
@@ -555,7 +420,7 @@ function createViewModes(rootNodes, currentViewId) {
         highlightNodeIds.push(node.id);
       });
     }
-    makeViewMode('unused', `Unused JS (${formatBytes(bytes)})`, {
+    makeViewMode('unused', `Unused JS (${Util.formatBytes(bytes)})`, {
       partitionBy: 'wastedBytes',
       highlightNodeIds,
     });
@@ -575,7 +440,7 @@ function createViewModes(rootNodes, currentViewId) {
         highlightNodeIds.push(node.id);
       });
     }
-    makeViewMode('large', `Large Modules (${formatBytes(bytes)})`, {
+    makeViewMode('large', `Large Modules (${Util.formatBytes(bytes)})`, {
       partitionBy: 'bytes',
       highlightNodeIds,
     });
@@ -595,7 +460,7 @@ function createViewModes(rootNodes, currentViewId) {
         highlightNodeIds.push(node.id);
       });
     }
-    makeViewMode('duplicate', `Duplicate Modules (${formatBytes(bytes)})`, {
+    makeViewMode('duplicate', `Duplicate Modules (${Util.formatBytes(bytes)})`, {
       partitionBy: 'bytes',
       highlightNodeIds,
     });
@@ -608,7 +473,7 @@ function createViewModes(rootNodes, currentViewId) {
  */
 function init(options) {
   createHeader(options);
-  treemapViewer = new TreemapViewer(options, find('.panel--treemap'));
+  treemapViewer = new TreemapViewer(options, Util.find('.panel--treemap'));
   treemapViewer.show({
     rootNodeId: options.showViewId,
     partitionBy: 'bytes',

@@ -1,3 +1,6 @@
+import _Util = require('../app/src/utils.js');
+import '../../types/lhr';
+
 declare global {
   module Treemap {
     interface Options {
@@ -11,6 +14,8 @@ declare global {
       highlightNodeIds?: string[];
     }
   }
+
+  var Util: typeof _Util;
 
   interface Window {
     __treemapViewer: TreemapViewer;
