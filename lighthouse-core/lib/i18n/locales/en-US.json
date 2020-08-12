@@ -1310,11 +1310,20 @@
   "lighthouse-core/audits/uses-rel-preload.js | title": {
     "message": "Preload key requests"
   },
+  "lighthouse-core/audits/valid-source-maps.js | columnMapURL": {
+    "message": "Map URL"
+  },
   "lighthouse-core/audits/valid-source-maps.js | description": {
-    "message": "Source maps translate your minified code to the original source code which helps with debugging, and tracking down bugs in production. Consider enabling or updating source maps during JavaScript bundling to take advantage of this feature. [Learn more](https://developers.google.com/web/tools/chrome-devtools/javascript/source-maps)."
+    "message": "Source maps translate minified code to the original source code. This helps developers debug in production. In addition, Lighthouse is able to provide further insights. Consider deploying source maps to take advantage of these benefits. [Learn more](https://developers.google.com/web/tools/chrome-devtools/javascript/source-maps)."
   },
   "lighthouse-core/audits/valid-source-maps.js | failureTitle": {
     "message": "Missing source maps for large first-party JavaScript"
+  },
+  "lighthouse-core/audits/valid-source-maps.js | missingSourceMapErrorMessage": {
+    "message": "Large JavaScript file is missing a source map"
+  },
+  "lighthouse-core/audits/valid-source-maps.js | missingSourceMapItemsErrorMesssage": {
+    "message": "{missingItems, plural,\n    =1 {Missing 1 item in `.sourcesContent`}\n    other {Missing # items in `.sourcesContent`}\n    }"
   },
   "lighthouse-core/audits/valid-source-maps.js | title": {
     "message": "Page has valid source maps"

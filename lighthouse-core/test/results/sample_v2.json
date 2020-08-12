@@ -1921,7 +1921,7 @@
     "valid-source-maps": {
       "id": "valid-source-maps",
       "title": "Page has valid source maps",
-      "description": "Source maps translate your minified code to the original source code which helps with debugging, and tracking down bugs in production. Consider enabling or updating source maps during JavaScript bundling to take advantage of this feature. [Learn more](https://developers.google.com/web/tools/chrome-devtools/javascript/source-maps).",
+      "description": "Source maps translate minified code to the original source code. This helps developers debug in production. In addition, Lighthouse is able to provide further insights. Consider deploying source maps to take advantage of these benefits. [Learn more](https://developers.google.com/web/tools/chrome-devtools/javascript/source-maps).",
       "score": 1,
       "scoreDisplayMode": "binary",
       "details": {
