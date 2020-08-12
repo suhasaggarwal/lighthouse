@@ -16,9 +16,9 @@ const UIStrings = {
   /** Title of a Lighthouse audit that provides detail on HTTP to HTTPS redirects. This descriptive title is shown to users when HTTP traffic is not redirected to HTTPS. */
   failureTitle: 'Missing source maps for large first-party JavaScript',
   /** Description of a Lighthouse audit that tells the user that their JavaScript source maps are invalid or missing. This is displayed after a user expands the section to see more. No character length limits. 'Learn More' becomes link text to additional documentation. */
-  description: 'Source maps translate your minified code to the original source code which ' +
-    'helps with debugging, and tracking down bugs in production. Consider enabling or updating ' +
-    'source maps during JavaScript bundling to take advantage of this feature. ' +
+  description: 'Source maps translate minified code to the original source code. This helps ' +
+    'developers debug in production. In addition, Lighthouse is able to provide further insights. Consider deploying ' +
+    'source maps to take advantage of these benefits. ' +
     '[Learn more](https://developers.google.com/web/tools/chrome-devtools/javascript/source-maps).',
   /** Label for a column in a data table. Entries will be URLs to JavaScript source maps. */
   columnMapURL: 'Map URL',
@@ -50,7 +50,7 @@ class ValidSourceMaps extends Audit {
   }
 
   /**
-   * Returns true if the size of the script exceeds a static threshold
+   * Returns true if the size of the script exceeds a static threshold.
    * @param {LH.Artifacts.ScriptElement} scriptElement
    * @param {string} finalURL
    * @return {boolean}
