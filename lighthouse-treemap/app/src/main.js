@@ -259,6 +259,7 @@ class TreemapViewer {
       }
 
       treemapViewer.show({
+        ...treemapViewer.mode,
         selector: {
           type: selectorType,
           value: selectorValue,
