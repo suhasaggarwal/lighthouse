@@ -6,38 +6,17 @@
 'use strict';
 
 const assert = require('assert').strict;
-const fs = require('fs');
 const UnusedJavaScript = require('../../../audits/byte-efficiency/unused-javascript.js');
 const networkRecordsToDevtoolsLog = require('../../network-records-to-devtools-log.js');
-
-function load(name) {
-  const dir = `${__dirname}/../../fixtures/source-maps`;
-  const mapJson = fs.readFileSync(`${dir}/${name}.js.map`, 'utf-8');
-  const content = fs.readFileSync(`${dir}/${name}.js`, 'utf-8');
-  const usageJson = fs.readFileSync(`${dir}/${name}.usage.json`, 'utf-8');
-  const exportedUsage = JSON.parse(usageJson);
-
-  // Usage is exported from DevTools, which simplifies the real format of the
-  // usage protocol.
-  const usage = {
-    url: exportedUsage.url,
-    functions: [
-      {
-        ranges: exportedUsage.ranges.map((range, i) => {
-          return {
-            startOffset: range.start,
-            endOffset: range.end,
-            count: i % 2 === 0 ? 0 : 1,
-          };
-        }),
-      },
-    ],
-  };
-
-  return {map: JSON.parse(mapJson), content, usage};
-}
+const {loadSourceMapFixture} = require('../../test-utils.js');
 
 /* eslint-env jest */
+
+function load(name) {
+  const data = loadSourceMapFixture(name);
+  if (!data.usage) throw new Error('exepcted usage');
+  return data;
+}
 
 function generateRecord(url, transferSize, resourceType) {
   return {url, transferSize, resourceType};

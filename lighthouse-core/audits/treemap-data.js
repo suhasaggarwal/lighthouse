@@ -43,7 +43,6 @@ const {taskGroups} = require('../lib/tracehouse/task-groups.js');
  * @property {number=} executionTime
  * @property {boolean=} duplicate
  * @property {Node[]=} children
- * @property {string[]=} tags
  */
 
 /**
@@ -148,8 +147,6 @@ class TreemapDataAudit extends Audit {
     /** @type {RootNode[]} */
     const rootNodes = [];
 
-    const devtoolsLog = artifacts.devtoolsLogs[Audit.DEFAULT_PASS];
-    const networkRecords = await NetworkRecords.request(devtoolsLog, context);
     const bundles = await JsBundles.request(artifacts, context);
     const duplication = await ModuleDuplication.request(artifacts, context);
     const origin = new URL(artifacts.URL.finalUrl).origin;

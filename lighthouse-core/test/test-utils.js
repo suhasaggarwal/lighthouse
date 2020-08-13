@@ -78,6 +78,46 @@ function getProtoRoundTrip() {
   };
 }
 
+/**
+ * @param {string} name
+ */
+function loadSourceMapFixture(name) {
+  const dir = `${__dirname}/fixtures/source-maps`;
+  const mapJson = fs.readFileSync(`${dir}/${name}.js.map`, 'utf-8');
+  const content = fs.readFileSync(`${dir}/${name}.js`, 'utf-8');
+
+  const usagePath = `${dir}/${name}.usage.json`;
+  let usage = undefined;
+  if (fs.existsSync(usagePath)) {
+    const usageJson = fs.readFileSync(`${dir}/${name}.usage.json`, 'utf-8');
+    const exportedUsage = JSON.parse(usageJson);
+
+    // Usage is exported from DevTools, which simplifies the real format of the
+    // usage protocol.
+    const usage = {
+      url: exportedUsage.url,
+      functions: [
+        {
+          ranges: exportedUsage.ranges.map((range, i) => {
+            return {
+              startOffset: range.start,
+              endOffset: range.end,
+              count: i % 2 === 0 ? 0 : 1,
+            };
+          }),
+        },
+      ],
+    };
+  }
+
+  return {
+    map: JSON.parse(mapJson),
+    content,
+    usage,
+  };
+}
+
 module.exports = {
   getProtoRoundTrip,
+  loadSourceMapFixture,
 };
