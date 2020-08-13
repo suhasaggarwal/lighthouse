@@ -36,35 +36,40 @@ We plan to improve the experience of viewing a trace under simulated throttling.
 
 This Performance Calendar article, [Testing with Realistic Networking Conditions](https://calendar.perfplanet.com/2016/testing-with-realistic-networking-conditions/), has a good explanation of packet-level traffic shaping (which applies across TCP/UDP/ICMP) and recommendations.
 
-The `comcast` Go package appears to be the most usable Mac/Linux commandline app for managing your network connection. Important to note: it changes your **entire** machine's network interface. Also, **`comcast` requires `sudo`** (as all packet-level shapers do).
+The `throttle` npm package appears to be the most usable Mac/Linux commandline app for managing your network connection. Important to note: it changes your **entire** machine's network interface. Also, **`throttle` requires `sudo`** (as all packet-level shapers do).
 
-**Windows?** As of today, there is no single cross-platform tool for throttling. But there are two recommended Windows-specific network shaping utilities: [WinShaper](https://calendar.perfplanet.com/2016/testing-with-realistic-networking-conditions/#introducing_winshaper) and [Clumsy](http://jagt.github.io/clumsy/).
+**Windows?** As of today, there is no single cross-platform tool for throttling. But there are two recommended **Windows 7** network shaping utilities: [WinShaper](https://calendar.perfplanet.com/2016/testing-with-realistic-networking-conditions/#introducing_winshaper) and [Clumsy](http://jagt.github.io/clumsy/).
 
-### `comcast` set up
+For **Windows 10** [NetLimiter](https://www.netlimiter.com/buy/nl4lite/standard-license/1/0) (Paid option) and [TMeter](http://www.tmeter.ru/en/) (Freeware Edition) are the most usable solutions.
+
+### `throttle` set up
 
 ```sh
-# Install with go
-go get github.com/tylertreat/comcast
-# Ensure your $GOPATH/bin is in your $PATH (https://github.com/golang/go/wiki/GOPATH)
+# Install with npm
+npm install @sitespeed.io/throttle -g
+# Ensure you have Node.js installed and npm is in your $PATH (https://nodejs.org/en/download/)
 
 # To use the recommended throttling values:
-comcast --latency=150 --target-bw=1638 --dry-run
+throttle --up 768 --down 1638 --rtt 150
+
+# or even simpler (using a predefined profile)
+throttle 3gfast
 
 # To disable throttling
-# comcast --stop
+throttle --stop
 ```
 
-Currently, `comcast` will also throttle the websocket port that Lighthouse uses to connect to Chrome. This isn't a big problem but mostly means that receiving the trace from the browser takes significantly more time. Also, `comcast` [doesn't support](https://github.com/tylertreat/comcast/issues/17) a separate uplink throughput.
+For more information and a complete list of features visit the documentation on [sitespeed.io website](https://www.sitespeed.io/documentation/throttle/).
 
-### Using Lighthouse with `comcast`
+### Using Lighthouse with `throttle`
 
 ```sh
 # Enable system traffic throttling
-comcast --latency=150 --target-bw=1638
+throttle 3gfast
 
 # Run Lighthouse with its own throttling disabled
-lighthouse --throttling.requestLatencyMs=0 --throttling.downloadThroughputKbps=0 --throttling.uploadThroughputKbps=0 # ...
+lighthouse --throttling-method=provided # ...
 
 # Disable the traffic throttling once you see "Gathering trace"
-comcast --stop
+throttle --stop
 ```

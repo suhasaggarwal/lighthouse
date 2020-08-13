@@ -12,7 +12,7 @@ DIRNAME="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 LH_ROOT="$DIRNAME/../../.."
 cd $DIRNAME
 
-GCLOUD_USER=$(gcloud config get-value account | awk -F '@' '{print $1}')
+GCLOUD_USER=$(gcloud config get-value account | awk -F '@' '{gsub("[^a-z]","",$1); print $1}')
 INSTANCE_SUFFIX=${1:-instance0}
 INSTANCE_NAME="lighthouse-collection-$GCLOUD_USER-$INSTANCE_SUFFIX"
 CLOUDSDK_CORE_PROJECT=${LIGHTHOUSE_COLLECTION_GCLOUD_PROJECT:-lighthouse-lantern-collect}
@@ -51,6 +51,7 @@ set +x
 
 echo "Collection has started."
 echo "Check-in on progress anytime by running..."
+echo "  $ bash lighthouse-core/scripts/gcp-collection/fleet-status.sh"
 echo "  $ gcloud --project="$CLOUDSDK_CORE_PROJECT" compute ssh lighthouse@$INSTANCE_NAME --command='tail -f collect.log' --zone=$ZONE"
 
 TRACE_COPY_COMMAND="gcloud --project="$CLOUDSDK_CORE_PROJECT" compute scp $INSTANCE_NAME:/home/lighthouse/trace-data.tar.gz ./trace-data.tar.gz --zone=$ZONE"
@@ -58,14 +59,14 @@ LHR_COPY_COMMAND="gcloud --project="$CLOUDSDK_CORE_PROJECT" compute scp $INSTANC
 DELETE_INSTANCE_COMMAND="gcloud --project="$CLOUDSDK_CORE_PROJECT" compute instances delete $INSTANCE_NAME --zone=$ZONE"
 echo "When complete run..."
 echo "  For LHR + trace data for -A replication"
-echo "  $ bash .tmp/gcp/copy-traces.sh"
+echo "  $ bash .tmp/gcp/$INSTANCE_NAME-copy-traces.sh"
 echo "  For LHR data for smaller transfer sizes replication"
-echo "  $ bash .tmp/gcp/copy-lhrs.sh"
+echo "  $ bash .tmp/gcp/$INSTANCE_NAME-copy-lhrs.sh"
 echo "  To delete the instance"
-echo "  $ bash .tmp/gcp/delete-instance.sh"
+echo "  $ bash .tmp/gcp/$INSTANCE_NAME-delete-instance.sh"
 
 cd $LH_ROOT
 mkdir -p .tmp/gcp/
-echo "$TRACE_COPY_COMMAND" > .tmp/gcp/copy-traces.sh
-echo "$LHR_COPY_COMMAND" > .tmp/gcp/copy-lhrs.sh
-echo "$DELETE_INSTANCE_COMMAND" > .tmp/gcp/delete-instance.sh
+echo "$TRACE_COPY_COMMAND" > ".tmp/gcp/$INSTANCE_NAME-copy-traces.sh"
+echo "$LHR_COPY_COMMAND" > ".tmp/gcp/$INSTANCE_NAME-copy-lhrs.sh"
+echo "$DELETE_INSTANCE_COMMAND" > ".tmp/gcp/$INSTANCE_NAME-delete.sh"
