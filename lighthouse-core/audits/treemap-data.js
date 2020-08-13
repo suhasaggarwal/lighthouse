@@ -15,6 +15,8 @@ const BootupTime = require('../audits/bootup-time.js');
 const MainThreadTasks = require('../computed/main-thread-tasks.js');
 const {taskGroups} = require('../lib/tracehouse/task-groups.js');
 
+// TODO: wrangle RootNode, Node2, node creation, etc...
+
 /**
  * @typedef {Record<string, RootNode[]>} TreemapData
  */
@@ -132,7 +134,8 @@ class TreemapDataAudit extends Audit {
       scoreDisplayMode: Audit.SCORING_MODES.INFORMATIVE,
       title: 'Treemap Data',
       description: 'Used for treemap visualization.',
-      requiredArtifacts: ['traces', 'devtoolsLogs', 'SourceMaps', 'ScriptElements', 'JsUsage', 'URL'],
+      requiredArtifacts:
+        ['traces', 'devtoolsLogs', 'SourceMaps', 'ScriptElements', 'JsUsage', 'URL'],
     };
   }
 
@@ -161,17 +164,22 @@ class TreemapDataAudit extends Audit {
         length: 0,
       },
     ];
-    for (const ScriptElement of artifacts.ScriptElements) {
-      if (!ScriptElement.src) {
-        scriptData[0].length += (ScriptElement.content || '').length;
+    for (const scriptElement of artifacts.ScriptElements) {
+      if (!scriptElement.src) {
+        scriptData[0].length += (scriptElement.content || '').length;
         continue;
       }
 
+      const url = scriptElement.src;
+      const bundle = bundles.find(bundle => url === bundle.script.src);
+      const scriptCoverages = artifacts.JsUsage[url];
+      if (!bundle || !scriptCoverages) continue;
+
       scriptData.push({
-        src: ScriptElement.src,
-        length: (ScriptElement.content || '').length,
-        unusedJavascriptSummary: await TreemapDataAudit.getUnusedJavascriptSummary(
-          ScriptElement, bundles, networkRecords, artifacts.JsUsage, context),
+        src: scriptElement.src,
+        length: (scriptElement.content || '').length,
+        unusedJavascriptSummary:
+          await UnusedJavaScriptSummary.request({url, scriptCoverages, bundle}, context),
       });
     }
 
@@ -179,7 +187,7 @@ class TreemapDataAudit extends Audit {
       const bundle = bundles.find(bundle => bundle.script.src === src);
 
       let id = src;
-      // TODO: just use the full URL and defer shortening to the viewer.
+      // TODO: just use the full URL and defer shortening to the treemap app.
       if (id.startsWith(origin)) id = id.replace(origin, '/');
 
       let node;
@@ -235,36 +243,18 @@ class TreemapDataAudit extends Audit {
   }
 
   /**
-   * @param {LH.Artifacts.Bundle} bundle
-   * @param {LH.Artifacts.NetworkRequest[]} networkRecords
-   * @param {LH.Artifacts['JsUsage']} JsUsage
-   * @param {LH.Audit.Context} context
-   */
-  static async getSourcesWastedBytes(bundle, networkRecords, JsUsage, context) {
-    const networkRecord = networkRecords.find(record => record.url === bundle.script.src);
-    if (!networkRecord) return;
-    const scriptCoverages = JsUsage[bundle.script.src || ''];
-    if (!scriptCoverages) return;
-    const unusedJsSumary =
-      await UnusedJavaScriptSummary.request({networkRecord, scriptCoverages, bundle}, context);
-    return unusedJsSumary.sourcesWastedBytes;
-  }
-
-  /**
-   * @param {LH.Artifacts.ScriptElement} ScriptElement
    * @param {LH.Artifacts.Bundle[]} bundles
-   * @param {LH.Artifacts.NetworkRequest[]} networkRecords
+   * @param {string} url
    * @param {LH.Artifacts['JsUsage']} JsUsage
    * @param {LH.Audit.Context} context
    */
-  static async getUnusedJavascriptSummary(ScriptElement, bundles, networkRecords, JsUsage, context) {
-    const bundle = bundles.find(bundle => bundle.script.src === bundle.script.src);
-    const networkRecord = networkRecords.find(record => record.url === ScriptElement.src);
-    if (!networkRecord) return;
-    const scriptCoverages = JsUsage[ScriptElement.src || ''];
+  static async getUnusedJavascriptSummary(bundles, url, JsUsage, context) {
+    const bundle = bundles.find(bundle => url === bundle.script.src);
+    const scriptCoverages = JsUsage[url];
     if (!scriptCoverages) return;
+
     const unusedJsSumary =
-      await UnusedJavaScriptSummary.request({networkRecord, scriptCoverages, bundle}, context);
+      await UnusedJavaScriptSummary.request({url, scriptCoverages, bundle}, context);
     return unusedJsSumary;
   }
 
@@ -319,7 +309,6 @@ class TreemapDataAudit extends Audit {
   }
 
   /**
-   * temporary code
    * @param {LH.Artifacts} artifacts
    * @param {LH.Audit.Context} context
    */

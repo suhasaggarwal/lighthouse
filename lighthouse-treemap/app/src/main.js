@@ -91,6 +91,7 @@ class TreemapViewer {
    */
   show(mode) {
     this.mode = mode;
+    if (!this.mode.partitionBy) this.mode.partitionBy = 'bytes';
 
     // Update options view.
     const partitionBySelectorEl = Util.find('.partition-selector');
