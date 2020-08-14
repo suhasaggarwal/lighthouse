@@ -26,7 +26,7 @@ const {taskGroups} = require('../lib/tracehouse/task-groups.js');
  * @property {number} bytes
  * @property {number=} wastedBytes
  * @property {number=} executionTime
- * @property {boolean=} duplicate
+ * @property {string=} duplicate
  */
 
 /**
@@ -41,87 +41,10 @@ const {taskGroups} = require('../lib/tracehouse/task-groups.js');
  * @property {number=} bytes
  * @property {number=} wastedBytes
  * @property {number=} executionTime
- * @property {boolean=} duplicate
+ * @property {string=} duplicate
  * @property {Node[]=} children
  */
 
-/**
- * @param {LH.Artifacts.RawSourceMap} map
- * @param {Record<string, SourceData>} sourcesData
- * @return {Node}
- */
-function prepareTreemapNodes(map, sourcesData) {
-  /**
-   * @param {string} id
-   */
-  function newNode(id) {
-    return {
-      id,
-      bytes: 0,
-      wastedBytes: 0,
-      executionTime: 0,
-    };
-  }
-
-  /**
-   * @param {string} source
-   * @param {SourceData} data
-   * @param {*} node
-   */
-  function addNode(source, data, node) {
-    // Strip off the shared root.
-    const sourcePathSegments = source.replace(map.sourceRoot || '', '').split(/\/+/);
-    node.bytes += data.bytes;
-    if (data.wastedBytes) node.wastedBytes += data.wastedBytes;
-
-    sourcePathSegments.forEach((sourcePathSegment, i) => {
-      if (!node.children) {
-        node.children = [];
-      }
-
-      let child = node.children.find(child => child.id === sourcePathSegment);
-
-      if (!child) {
-        child = newNode(sourcePathSegment);
-        node.children.push(child);
-      }
-      node = child;
-      node.bytes += data.bytes;
-      if (data.wastedBytes) node.wastedBytes += data.wastedBytes;
-      if (data.duplicate !== undefined && i === sourcePathSegments.length - 1) {
-        node.duplicate = data.duplicate;
-      }
-    });
-  }
-
-  const rootNode = newNode(map.sourceRoot || '/');
-  for (const [source, data] of Object.entries(sourcesData)) {
-    addNode(source || `<unmapped>`, data, rootNode);
-  }
-
-  /**
-   * Collapse nodes that have just one child + grandchild.
-   * @param {*} node
-   */
-  function collapse(node) {
-    if (node.children && node.children.length === 1) {
-      node.id += '/' + node.children[0].id;
-      node.children = node.children[0].children;
-    }
-
-    if (node.children) {
-      for (const child of node.children) {
-        collapse(child);
-      }
-    }
-  }
-  collapse(rootNode);
-
-  // TODO(cjamcl): Should this structure be flattened for space savings?
-  // Less JSON (no super nested children, and no repeated property names).
-
-  return rootNode;
-}
 
 class TreemapDataAudit extends Audit {
   /**
@@ -139,6 +62,82 @@ class TreemapDataAudit extends Audit {
   }
 
   /**
+   * @param {string} sourceRoot
+   * @param {Record<string, SourceData>} sourcesData
+   * @return {Node}
+   */
+  static prepareTreemapNodes(sourceRoot, sourcesData) {
+    /**
+     * @param {string} id
+     */
+    function newNode(id) {
+      return {
+        id,
+        bytes: 0,
+      };
+    }
+
+    /**
+     * @param {string} source
+     * @param {SourceData} data
+     * @param {*} node
+     */
+    function addNode(source, data, node) {
+      // Strip off the shared root.
+      const sourcePathSegments = source.replace(sourceRoot, '').split(/\/+/);
+      node.bytes += data.bytes;
+      if (data.wastedBytes) node.wastedBytes += data.wastedBytes;
+
+      sourcePathSegments.forEach((sourcePathSegment, i) => {
+        if (!node.children) {
+          node.children = [];
+        }
+
+        let child = node.children.find(child => child.id === sourcePathSegment);
+
+        if (!child) {
+          child = newNode(sourcePathSegment);
+          node.children.push(child);
+        }
+        node = child;
+        node.bytes += data.bytes;
+        if (data.wastedBytes) node.wastedBytes = (node.wastedBytes || 0) + data.wastedBytes;
+        if (data.duplicate !== undefined && i === sourcePathSegments.length - 1) {
+          node.duplicate = data.duplicate;
+        }
+      });
+    }
+
+    const rootNode = newNode(sourceRoot);
+    for (const [source, data] of Object.entries(sourcesData)) {
+      addNode(source || `<unmapped>`, data, rootNode);
+    }
+
+    /**
+     * Collapse nodes that have just one child + grandchild.
+     * @param {*} node
+     */
+    function collapse(node) {
+      if (node.children && node.children.length === 1) {
+        node.id += '/' + node.children[0].id;
+        node.children = node.children[0].children;
+      }
+
+      if (node.children) {
+        for (const child of node.children) {
+          collapse(child);
+        }
+      }
+    }
+    collapse(rootNode);
+
+    // TODO(cjamcl): Should this structure be flattened for space savings?
+    // Less JSON (no super nested children, and no repeated property names).
+
+    return rootNode;
+  }
+
+  /**
    * @param {LH.Artifacts} artifacts
    * @param {LH.Audit.Context} context
    * @return {Promise<RootNode[]>}
@@ -149,11 +148,10 @@ class TreemapDataAudit extends Audit {
 
     const bundles = await JsBundles.request(artifacts, context);
     const duplication = await ModuleDuplication.request(artifacts, context);
-    const origin = new URL(artifacts.URL.finalUrl).origin;
+    // const origin = new URL(artifacts.URL.finalUrl).origin;
     // TODO: this should be a computed artifact.
     const executionTimings = await TreemapDataAudit.getExecutionTimings(artifacts, context);
 
-    // Normalize ScriptElements so that inline scripts show up as a single entity.
     /** @type {Array<{src: string, length: number, unusedJavascriptSummary?: import('../computed/unused-javascript-summary.js').Summary}>} */
     const scriptData = [
       {
@@ -162,6 +160,7 @@ class TreemapDataAudit extends Audit {
       },
     ];
     for (const scriptElement of artifacts.ScriptElements) {
+      // Normalize ScriptElements so that inline scripts show up as a single entity.
       if (!scriptElement.src) {
         scriptData[0].length += (scriptElement.content || '').length;
         continue;
@@ -183,9 +182,9 @@ class TreemapDataAudit extends Audit {
     for (const {src, length, unusedJavascriptSummary} of scriptData) {
       const bundle = bundles.find(bundle => bundle.script.src === src);
 
-      let id = src;
+      const id = src;
       // TODO: just use the full URL and defer shortening to the treemap app.
-      if (id.startsWith(origin)) id = id.replace(origin, '/');
+      // if (id.startsWith(origin)) id = id.replace(origin, '/');
 
       let node;
       if (bundle && unusedJavascriptSummary && unusedJavascriptSummary.sourcesWastedBytes) {
@@ -203,13 +202,13 @@ class TreemapDataAudit extends Audit {
 
           if (duplication) {
             const key = ModuleDuplication._normalizeSource(source);
-            sourceData.duplicate = duplication.has(key);
+            if (duplication.has(key)) sourceData.duplicate = key;
           }
 
           sourcesData[source] = sourceData;
         }
 
-        node = prepareTreemapNodes(bundle.rawMap, sourcesData);
+        node = this.prepareTreemapNodes(bundle.rawMap.sourceRoot || '', sourcesData);
       } else if (unusedJavascriptSummary) {
         node = {
           id,

@@ -87,7 +87,7 @@ function loadSourceMapFixture(name) {
   const content = fs.readFileSync(`${dir}/${name}.js`, 'utf-8');
 
   const usagePath = `${dir}/${name}.usage.json`;
-  let usage = undefined;
+  const usage = undefined;
   if (fs.existsSync(usagePath)) {
     const usageJson = fs.readFileSync(`${dir}/${name}.usage.json`, 'utf-8');
     const exportedUsage = JSON.parse(usageJson);

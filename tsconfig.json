@@ -32,5 +32,6 @@
     "lighthouse-core/test/scripts/lantern/constants-test.js",
     "lighthouse-core/test/gather/driver-test.js",
     "lighthouse-core/test/gather/gather-runner-test.js",
+    "lighthouse-core/test/audits/treemap-data-test.js"
   ],
 }
